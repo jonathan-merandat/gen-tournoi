@@ -35,6 +35,45 @@ const levelValue = {
   N1: 0,
 };
 
+const description = {
+  equipier: {
+    label: "Coéquipier non répété",
+    desc: "Evite de rejouer plusieurs fois avec le même équipier",
+  },
+  attente: {
+    label: "Attente minimum",
+    desc: "Evite d'attendre plusieurs fois, essaye de répartir les attentes sur tout le monde",
+  },
+  adversaire: {
+    label: "Adversaire non répété",
+    desc: "Evite de rejouer plusieurs fois contre le même adversaire",
+  },
+  sexe: {
+    label: "Egalité des sexe",
+    desc: "Evite de faire jouer un mixte contre un double ou un double homme contre un double dame",
+  },
+  niveau: {
+    label: "Ecart maximum de niveau",
+    desc: "Essaye de respecter l'écart maximum pour les niveau, défini par points bonus attribués aux niveaux",
+  },
+  limitTime: {
+    label: "Temps limite par tour",
+    desc: "Si le temps est à 0 alors il n'y a pas de temps limite",
+  },
+  victoire: {
+    label: "Victoire",
+    desc: "Match remporté avec plus de 2 points d'écart",
+  },
+  "petite victoire": {
+    label: "Petite victoire",
+    desc: "Match remporté avec seulement 2 points d'écart",
+  },
+  défaite: {
+    label: "Défaite",
+    desc: "Match perdu",
+  },
+};
+
 const defaultConfig = {
   terrains: 7,
   tours: 8,
@@ -48,6 +87,7 @@ const defaultConfig = {
   },
   isScoreNegatif: false,
   attribPoint: { victoire: 5, "petite victoire": 2, défaite: 0 },
+  limitTime: 0,
 };
 let tournoi = JSON.parse(localStorage.getItem("gen-tournoi") || "{}");
 let players = tournoi.players || [];
@@ -403,6 +443,31 @@ function renderPreparationSection() {
       saveData();
     });
   });
+
+  const sliderLimitTime = document.body.querySelector(
+    ".slider-param-tps-limit"
+  );
+  if (sliderLimitTime) {
+    noUiSlider.create(sliderLimitTime, {
+      start: parseInt(settings.limitTime),
+      connect: [true, false],
+      step: 1,
+      range: {
+        min: 0,
+        max: 60,
+      },
+    });
+    sliderLimitTime.noUiSlider.on("slide", (values, handle) => {
+      const val = parseInt(values[handle]);
+      settings.limitTime = val;
+      document.getElementById("tps-limit-value").innerHTML =
+        val == 0 ? val + " min" : "Pas de temps limite par tour";
+      saveData();
+    });
+    sliderLimitTime.noUiSlider.on("end", (values, handle) => {
+      renderPreparationSection();
+    });
+  }
 }
 
 function requestDeletePlayer(event, i) {
@@ -939,12 +1004,15 @@ function renderResults() {
   el.innerHTML = `
     <div class="sous-header flex justify-between items-center w-full">
       <button onclick="togglePanel(true);showSection('tournament');">⭠ Retour</button>
-      <span>Tournoi terminé - durée : ${getTpsTotal()}</span>
+        <button onclick="exportResultsToPDF()">📄 Exporter en PDF</button>
       <button onclick="togglePanel()">⚙️ Paramètres</button>
     </div>
 
-    <div class="w-full flex flex-col justify-center items-center">
-      <h1 class="text-xl mt-4">Résultats</h1>
+    <div id="listResult" class="w-full flex flex-col justify-center items-center">
+      <div class="flex w-96 justify-between items-center mt-8">
+        <h1 class="text-xl">Résultats</h1>
+        <span class="text-xl">Durée : ${getTpsTotal()}</span>
+      </div>
       <ol class="mt-4">
         ${joueurs
           .map(
@@ -1030,16 +1098,29 @@ function afficherTempsEcoule(dateDepart, currentTour) {
 function getTempsEcoule(dateDepart, dateFin = null, formatInteger = false) {
   const maintenant = dateFin ? dateFin : new Date();
   const ecoule = Math.floor((maintenant - dateDepart) / 1000);
-  if (formatInteger) return ecoule;
+  let valeur = ecoule;
 
-  const jours = Math.floor(ecoule / 86400);
-  const heures = Math.floor((ecoule % 86400) / 3600);
-  const minutes = Math.floor((ecoule % 3600) / 60);
-  const secondes = ecoule % 60;
-  if (jours >= 1) return `+ de ${jours} jour${jours > 1 ? "s" : ""}`;
-  if (heures > 0) return `${heures}h ${minutes}' ${secondes}''`;
-  if (minutes > 0) return `${minutes}' ${secondes}''`;
-  return `${secondes}''`;
+  let prefixe = "";
+  if (settings.limitTime != 0) {
+    valeur = settings.limitTime - ecoule;
+    if (valeur < 0) {
+      prefixe = "-";
+      valeur = Math.abs(valeur);
+    }
+  }
+
+  if (formatInteger)
+    return settings.limitTime != null ? prefixe + valeur : ecoule;
+
+  const jours = Math.floor(valeur / 86400);
+  const heures = Math.floor((valeur % 86400) / 3600);
+  const minutes = Math.floor((valeur % 3600) / 60);
+  const secondes = valeur % 60;
+
+  if (jours >= 1) return `${prefixe}+ de ${jours} jour${jours > 1 ? "s" : ""}`;
+  if (heures > 0) return `${prefixe}${heures}h ${minutes}' ${secondes}''`;
+  if (minutes > 0) return `${prefixe}${minutes}' ${secondes}''`;
+  return `${prefixe}${secondes}''`;
 }
 
 function launchTournoi() {
@@ -1089,10 +1170,19 @@ function clotureTour() {
 
 function renderContraintes() {
   const retour = `<button class="accordion p-2 flex justify-between items-center" onclick="this.classList.toggle('open')">
-        <span>Gestion des contraintes </span>
+        <span>Options avancées </span>
         <span>▼</span>
         </button> 
   <div class="accordion-content flex-wrap gap-4 w-full"> 
+  <h3>Gestion du tournoi</h3>
+    <div class="flex flex-col flex-auto min-w-96">
+      <label for="tps-limit-value" class="mb-2">Temps limite par tour</label> 
+      <div class="flex items-center justify-between">
+          <div class="slider-param-tps-limit flex-auto mr-6"> </div>
+          <span id="tps-limit-value" class="w-8">${settings.limitTime} </span>
+        </div>
+    </div>
+  <h3>Poids des contraintes</h3>
   ${Object.entries(settings.priorities)
     .map(
       ([priority, poids]) =>
@@ -1103,6 +1193,7 @@ function renderContraintes() {
           </label>`
     )
     .join("")}
+    
   </div>`;
   return retour;
 }
@@ -2264,4 +2355,16 @@ function checkRepetitionCoherence(nJoueurs, nTours) {
   } else {
     return `✅ Possible sans répétition (en théorie)`;
   }
+}
+
+function exportResultsToPDF() {
+  const element = document.getElementById("listResult"); // div contenant les résultats
+  const opt = {
+    margin: 0.5,
+    filename: "resultats-tournoi.pdf",
+    image: { type: "jpeg", quality: 0.98 },
+    html2canvas: { scale: 2 },
+    jsPDF: { unit: "in", format: "a4", orientation: "portrait" },
+  };
+  html2pdf().set(opt).from(element).save();
 }
