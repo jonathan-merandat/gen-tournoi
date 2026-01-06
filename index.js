@@ -308,9 +308,9 @@ function renderPreparationSection() {
     ${
       /*➜*/
       planning.length == 0
-        ? `
-      <button class="btn-primary" onclick="optimisePlanning();"> 🏆 Générer le tournoi</button>
-      `
+        ? ((settings.typeTournoi === "double" && players.length >= 4) || (settings.typeTournoi !== "double" && players.length >= 2) ?
+          `<button class="btn-primary" onclick="optimisePlanning();"> 🏆 Générer le tournoi</button>`
+          : `<span>Pas assez de joueurs..</span>`)
         : `
       <div class="flex justify-between w-full p-2">
         ${(settings.typeTournoi === "double" && players.length >= 4) || (settings.typeTournoi !== "double" && players.length >= 2) ?
@@ -588,249 +588,251 @@ function renderTournament() {
               </button>
               <div class="accordion-content w-full"> 
                 <div class="flex justify-center flex-wrap gap-4 w-full">
-                  ${tour.matchs
-                    .map((match, index) => {
-                      indexMatch++;
-                      const team1IsWinner = isWinner(indexTour, index, true);
-                      const team2IsWinner = isWinner(indexTour, index, false);
-                      return `
-                        <div class="flex flex-col mx-2 max-w-96 w-full">
-                          <div class="flex justify-between items-center w-full p-2 ">
-                            <h3>Match ${indexMatch}</h3>
-                            <h3>Terrain ${index + 1}</h3>
-                          </div>
+                  <div class="flex justify-center flex-wrap gap-4 w-full">
+                    ${tour.matchs
+                      .map((match, index) => {
+                        indexMatch++;
+                        const team1IsWinner = isWinner(indexTour, index, true);
+                        const team2IsWinner = isWinner(indexTour, index, false);
+                        return `
+                          <div class="flex flex-col mx-2 max-w-96 w-full">
+                            <div class="flex justify-between items-center w-full p-2 ">
+                              <h3>Match ${indexMatch}</h3>
+                              <h3>Terrain ${index + 1}</h3>
+                            </div>
 
-                          ${
-                            currentTour == indexTour
-                              ? ` 
-                              <div class="relative flex flex-col items-center border p-2 rounded">
-                              
-                                <span class="flex justify-center items-center text-2xl gap-4 w-full">
-                                  ${
-                                    currentEditMatchIndex != -1 &&
-                                    currentEditMatchIndex == index
-                                      ? `<button onclick="teamWin(true);" class="${
-                                          team1IsWinner ? "" : "opacity-50"
-                                        }">🏆</button>`
-                                      : team1IsWinner
-                                      ? `<button class="absolute top-0 left-5">🏆</button>`
-                                      : ``
-                                  }
-                                  <span class="w-8 text-right" ${
-                                    currentEditMatchIndex == index
-                                      ? 'id="currentScoreIndex1"'
-                                      : ""
-                                  }>${match.scoreTeam1}</span>
-                                  ${
-                                    currentEditMatchIndex == index
-                                      ? `<button class="text-xl" onclick="currentEditMatchIndex=-1;renderTournament();"> ✔️ </button>`
-                                      : `<button class="text-xl" onclick="currentEditMatchIndex=${index};renderTournament();"> ✏️ </button>`
-                                  }
-                                  <span class="w-8 text-left" ${
-                                    currentEditMatchIndex == index
-                                      ? 'id="currentScoreIndex2"'
-                                      : ""
-                                  }>${match.scoreTeam2}</span>
-                                  ${
-                                    currentEditMatchIndex != -1 &&
-                                    currentEditMatchIndex == index
-                                      ? `<button onclick="teamWin(false);" class="${
-                                          team2IsWinner ? "" : "opacity-50"
-                                        }">🏆</button>`
-                                      : team2IsWinner
-                                      ? `<button class="absolute top-0 right-5">🏆</button>`
-                                      : ``
-                                  }
-                                </span>
-                                <div class="flex justify-between items-center h-full w-full">
-                                    <div class="flex flex-col flex-1 overflow-hidden">
-                                      ${renderTeam(
-                                        match.team1,
-                                        "",
-                                        "float: right;"
-                                      )}
-                                    </div>
+                            ${
+                              currentTour == indexTour
+                                ? ` 
+                                <div class="relative flex flex-col items-center border p-2 rounded">
+                                
+                                  <span class="flex justify-center items-center text-2xl gap-4 w-full">
                                     ${
+                                      currentEditMatchIndex != -1 &&
                                       currentEditMatchIndex == index
-                                        ? `<div class="flex justify-between items-center h-full">
-                                                <div class="flex flex-col justify-between items-center h-full">
-                                                  ${renderSliderScore(
-                                                    indexTour +
-                                                      "-" +
-                                                      index +
-                                                      "-scoreTeam1"
-                                                  )}
-                                                </div>
-                                          </div>
-                                          <div id="plus-top-left" class="absolute flex justify-center items-center left-0 top-0 w-16 h-16 bg-yellow-100 rounded opacity-50 cursor-pointer" onmousedown="startTouchScore(true, '${
-                                            indexTour +
-                                            "-" +
-                                            index +
-                                            "-scoreTeam1"
-                                          }', intervals, 'topLeft');"
-                                          onmouseup="stopTouchScore(intervals, 'topLeft');" 
-                                          onmouseleave="stopTouchScore(intervals, 'topLeft');"
-                                          ontouchstart="(e) => { e.preventDefault(); startTouchScore(true, '${
-                                            indexTour +
-                                            "-" +
-                                            index +
-                                            "-scoreTeam1"
-                                          }', intervals, 'topLeft');}" 
-                                          ontouchend="stopTouchScore(intervals, 'topLeft');">
-                                              +
-                                          </div>
-                                          <div id="plus-bottom-left" class="absolute flex justify-center items-center left-0 bottom-0 w-16 h-16 bg-yellow-100 rounded opacity-50 cursor-pointer" onmousedown="startTouchScore(false, '${
-                                            indexTour +
-                                            "-" +
-                                            index +
-                                            "-scoreTeam1"
-                                          }', intervals, 'bottomLeft');"
-                                           onmouseup="stopTouchScore(intervals, 'bottomLeft');" 
-                                           onmouseleave="stopTouchScore(intervals, 'bottomLeft');"
-                                            ontouchstart="(e) => { e.preventDefault(); startTouchScore(false, '${
-                                              indexTour +
-                                              "-" +
-                                              index +
-                                              "-scoreTeam1"
-                                            }', intervals, 'bottomLeft');}" 
-                                          ontouchend="stopTouchScore(intervals, 'bottomLeft');">
-                                              -
-                                          </div>
-                                        `
+                                        ? `<button onclick="teamWin(true);" class="${
+                                            team1IsWinner ? "" : "opacity-50"
+                                          }">🏆</button>`
+                                        : team1IsWinner
+                                        ? `<button class="absolute top-0 left-5">🏆</button>`
                                         : ``
                                     }
-                                  
-                                  <div class="separator-vertical ${
-                                    currentTour === indexTour ? "mx-2" : ""
-                                  }"></div>
-                                  
-                                  ${
-                                    currentEditMatchIndex == index
-                                      ? `<div class="flex justify-between items-center h-full ">
-                                          <div class="flex flex-col justify-between items-center h-full">
-                                            ${renderSliderScore(
-                                              indexTour +
-                                                "-" +
-                                                index +
-                                                "-scoreTeam2"
-                                            )}
-                                          </div>
-                                      </div>
-                                      <div id="plus-top-left" class="absolute flex justify-center items-center right-0 top-0 w-16 h-16 bg-yellow-100 rounded opacity-50 cursor-pointer" onmousedown="startTouchScore(true, '${
-                                        indexTour + "-" + index + "-scoreTeam2"
-                                      }', intervals, 'topRight');"
-                                           onmouseup="stopTouchScore(intervals, 'topRight');" 
-                                           onmouseleave="stopTouchScore(intervals, 'topRight');"
-                                           ontouchstart="(e) => { e.preventDefault(); startTouchScore(true, '${
-                                             indexTour +
-                                             "-" +
-                                             index +
-                                             "-scoreTeam2"
-                                           }', intervals, 'topRight');}" 
-                                          ontouchend="stopTouchScore(intervals, 'topRight');">
-                                              +
-                                          </div>
-                                          <div id="plus-top-left" class="absolute flex justify-center items-center right-0 bottom-0 w-16 h-16 bg-yellow-100 rounded opacity-50 cursor-pointer" onmousedown="startTouchScore(false, '${
-                                            indexTour +
-                                            "-" +
-                                            index +
-                                            "-scoreTeam2"
-                                          }', intervals, 'bottomRight');"
-                                           onmouseup="stopTouchScore(intervals, 'bottomRight');" 
-                                           onmouseleave="stopTouchScore(intervals, 'bottomRight');"
-                                           ontouchstart="(e) => { e.preventDefault(); startTouchScore(false, '${
-                                             indexTour +
-                                             "-" +
-                                             index +
-                                             "-scoreTeam2"
-                                           }', intervals, 'bottomRight');}" 
-                                          ontouchend="stopTouchScore(intervals, 'bottomRight');">
-                                              -
-                                          </div>
-                                      `
-                                      : ``
-                                  }
-
-                                  <div class="flex flex-col flex-1 overflow-hidden items-end">
-                                    ${renderTeam(
-                                      match.team2,
-                                      "text-right",
-                                      "float: left;"
-                                    )}
-                                  </div>
-                                    
-                                </div>
-                              </div>`
-                              : `
-                              <div class="flex flex-col items-center border p-2 rounded w-full">
-                                  <span class="text-2xl gap-2 h-full flex justify-content items-center">
-                                    <span class="w-8 text-right">${
-                                      currentTour == -1 ||
-                                      (currentTour != null &&
-                                        indexTour >= currentTour)
-                                        ? match.initialScoreTeam1
-                                        : match.scoreTeam1
-                                    }</span>
-                                    <div class="separator-vertical ${
-                                      currentTour === indexTour ? "mx-1" : ""
-                                    }"></div>
-                                    <span class="w-8 text-left">${
-                                      currentTour == -1 ||
-                                      (currentTour != null &&
-                                        indexTour >= currentTour)
-                                        ? match.initialScoreTeam2
-                                        : match.scoreTeam2
-                                    }</span>
+                                    <span class="w-8 text-right" ${
+                                      currentEditMatchIndex == index
+                                        ? 'id="currentScoreIndex1"'
+                                        : ""
+                                    }>${match.scoreTeam1}</span>
+                                    ${
+                                      currentEditMatchIndex == index
+                                        ? `<button class="text-xl" onclick="currentEditMatchIndex=-1;renderTournament();"> ✔️ </button>`
+                                        : `<button class="text-xl" onclick="currentEditMatchIndex=${index};renderTournament();"> ✏️ </button>`
+                                    }
+                                    <span class="w-8 text-left" ${
+                                      currentEditMatchIndex == index
+                                        ? 'id="currentScoreIndex2"'
+                                        : ""
+                                    }>${match.scoreTeam2}</span>
+                                    ${
+                                      currentEditMatchIndex != -1 &&
+                                      currentEditMatchIndex == index
+                                        ? `<button onclick="teamWin(false);" class="${
+                                            team2IsWinner ? "" : "opacity-50"
+                                          }">🏆</button>`
+                                        : team2IsWinner
+                                        ? `<button class="absolute top-0 right-5">🏆</button>`
+                                        : ``
+                                    }
                                   </span>
-                                  <div class="flex justify-between items-center w-full">
-                                    <div class="flex flex-col flex-1 overflow-hidden ">
+                                  <div class="flex justify-between items-center h-full w-full">
+                                      <div class="flex flex-col flex-1 overflow-hidden">
                                         ${renderTeam(
                                           match.team1,
                                           "",
                                           "float: right;"
                                         )}
-                                    </div>
+                                      </div>
+                                      ${
+                                        currentEditMatchIndex == index
+                                          ? `<div class="flex justify-between items-center h-full">
+                                                  <div class="flex flex-col justify-between items-center h-full">
+                                                    ${renderSliderScore(
+                                                      indexTour +
+                                                        "-" +
+                                                        index +
+                                                        "-scoreTeam1"
+                                                    )}
+                                                  </div>
+                                            </div>
+                                            <div id="plus-top-left" class="absolute flex justify-center items-center left-0 top-0 w-16 h-16 bg-yellow-100 rounded opacity-50 cursor-pointer" onmousedown="startTouchScore(true, '${
+                                              indexTour +
+                                              "-" +
+                                              index +
+                                              "-scoreTeam1"
+                                            }', intervals, 'topLeft');"
+                                            onmouseup="stopTouchScore(intervals, 'topLeft');" 
+                                            onmouseleave="stopTouchScore(intervals, 'topLeft');"
+                                            ontouchstart="(e) => { e.preventDefault(); startTouchScore(true, '${
+                                              indexTour +
+                                              "-" +
+                                              index +
+                                              "-scoreTeam1"
+                                            }', intervals, 'topLeft');}" 
+                                            ontouchend="stopTouchScore(intervals, 'topLeft');">
+                                                +
+                                            </div>
+                                            <div id="plus-bottom-left" class="absolute flex justify-center items-center left-0 bottom-0 w-16 h-16 bg-yellow-100 rounded opacity-50 cursor-pointer" onmousedown="startTouchScore(false, '${
+                                              indexTour +
+                                              "-" +
+                                              index +
+                                              "-scoreTeam1"
+                                            }', intervals, 'bottomLeft');"
+                                            onmouseup="stopTouchScore(intervals, 'bottomLeft');" 
+                                            onmouseleave="stopTouchScore(intervals, 'bottomLeft');"
+                                              ontouchstart="(e) => { e.preventDefault(); startTouchScore(false, '${
+                                                indexTour +
+                                                "-" +
+                                                index +
+                                                "-scoreTeam1"
+                                              }', intervals, 'bottomLeft');}" 
+                                            ontouchend="stopTouchScore(intervals, 'bottomLeft');">
+                                                -
+                                            </div>
+                                          `
+                                          : ``
+                                      }
+                                    
                                     <div class="separator-vertical ${
                                       currentTour === indexTour ? "mx-2" : ""
                                     }"></div>
-                                    <div class="flex flex-col flex-1 overflow-hidden items-end">
-                                        ${renderTeam(
-                                          match.team2,
-                                          "text-right",
-                                          "float: left;"
-                                        )}
-                                    </div>
-                                  </div>
-                              </div>
-                              `
-                          }
+                                    
+                                    ${
+                                      currentEditMatchIndex == index
+                                        ? `<div class="flex justify-between items-center h-full ">
+                                            <div class="flex flex-col justify-between items-center h-full">
+                                              ${renderSliderScore(
+                                                indexTour +
+                                                  "-" +
+                                                  index +
+                                                  "-scoreTeam2"
+                                              )}
+                                            </div>
+                                        </div>
+                                        <div id="plus-top-left" class="absolute flex justify-center items-center right-0 top-0 w-16 h-16 bg-yellow-100 rounded opacity-50 cursor-pointer" onmousedown="startTouchScore(true, '${
+                                          indexTour + "-" + index + "-scoreTeam2"
+                                        }', intervals, 'topRight');"
+                                            onmouseup="stopTouchScore(intervals, 'topRight');" 
+                                            onmouseleave="stopTouchScore(intervals, 'topRight');"
+                                            ontouchstart="(e) => { e.preventDefault(); startTouchScore(true, '${
+                                              indexTour +
+                                              "-" +
+                                              index +
+                                              "-scoreTeam2"
+                                            }', intervals, 'topRight');}" 
+                                            ontouchend="stopTouchScore(intervals, 'topRight');">
+                                                +
+                                            </div>
+                                            <div id="plus-top-left" class="absolute flex justify-center items-center right-0 bottom-0 w-16 h-16 bg-yellow-100 rounded opacity-50 cursor-pointer" onmousedown="startTouchScore(false, '${
+                                              indexTour +
+                                              "-" +
+                                              index +
+                                              "-scoreTeam2"
+                                            }', intervals, 'bottomRight');"
+                                            onmouseup="stopTouchScore(intervals, 'bottomRight');" 
+                                            onmouseleave="stopTouchScore(intervals, 'bottomRight');"
+                                            ontouchstart="(e) => { e.preventDefault(); startTouchScore(false, '${
+                                              indexTour +
+                                              "-" +
+                                              index +
+                                              "-scoreTeam2"
+                                            }', intervals, 'bottomRight');}" 
+                                            ontouchend="stopTouchScore(intervals, 'bottomRight');">
+                                                -
+                                            </div>
+                                        `
+                                        : ``
+                                    }
 
-                         </div>
-                      `;
-                    })
-                    .join("")}
-                </div>
-                
-            </div>
-            ${tour.attentes.length > 0 ? 
-              `<div class="flex justify-center flex-wrap w-full bg-gray-10 m-2">
-                <h3>Joueurs en attente </h3>
-                <div class="flex justify-center flex-wrap gap-4 w-full">
-                  ${tour.attentes
-                    .map((player, index) => {
-                      return `
-                      <div class="block truncate player-attente player-attente-${
-                          player.gender
-                        }">
-                        <span>${player.name}</span>
-                        ${/*getLevelTournament(player)*/ ""}
-                      </div>
-                      `;
-                    })
-                    .join("")}
-                </div>
+                                    <div class="flex flex-col flex-1 overflow-hidden items-end">
+                                      ${renderTeam(
+                                        match.team2,
+                                        "text-right",
+                                        "float: left;"
+                                      )}
+                                    </div>
+                                      
+                                  </div>
+                                </div>`
+                                : `
+                                <div class="flex flex-col items-center border p-2 rounded w-full">
+                                    <span class="text-2xl gap-2 h-full flex justify-content items-center">
+                                      <span class="w-8 text-right">${
+                                        currentTour == -1 ||
+                                        (currentTour != null &&
+                                          indexTour >= currentTour)
+                                          ? match.initialScoreTeam1
+                                          : match.scoreTeam1
+                                      }</span>
+                                      <div class="separator-vertical ${
+                                        currentTour === indexTour ? "mx-1" : ""
+                                      }"></div>
+                                      <span class="w-8 text-left">${
+                                        currentTour == -1 ||
+                                        (currentTour != null &&
+                                          indexTour >= currentTour)
+                                          ? match.initialScoreTeam2
+                                          : match.scoreTeam2
+                                      }</span>
+                                    </span>
+                                    <div class="flex justify-between items-center w-full">
+                                      <div class="flex flex-col flex-1 overflow-hidden ">
+                                          ${renderTeam(
+                                            match.team1,
+                                            "",
+                                            "float: right;"
+                                          )}
+                                      </div>
+                                      <div class="separator-vertical ${
+                                        currentTour === indexTour ? "mx-2" : ""
+                                      }"></div>
+                                      <div class="flex flex-col flex-1 overflow-hidden items-end">
+                                          ${renderTeam(
+                                            match.team2,
+                                            "text-right",
+                                            "float: left;"
+                                          )}
+                                      </div>
+                                    </div>
+                                </div>
+                                `
+                            }
+
+                          </div>
+                        `;
+                      })
+                      .join("")}
+                  </div>
+                  ${tour.attentes.length > 0 ? 
+                    `<div class="flex justify-center flex-wrap w-full bg-gray-10 m-2">
+                      <h3>Joueurs en attente </h3>
+                    <div class="flex justify-center flex-wrap gap-4 w-full">
+                      ${tour.attentes
+                        .map((player, index) => {
+                          return `
+                          <div class="block truncate player-attente player-attente-${
+                              player.gender
+                            }">
+                            <span>${player.name}</span>
+                            ${/*getLevelTournament(player)*/ ""}
+                          </div>
+                        `;
+                      })
+                      .join("")}
+                  </div>
               </div>` : ""
             }
+            </div>
+            </div>
+            
             </div>
         `;
         })
@@ -845,8 +847,7 @@ function renderTournament() {
           : `${
               currentTour < planning.length - 1
                 ? `
-            <div class="flex justify-between w-full p-2">
-              <button class="btn-secondary" onclick="clotureTournoi();"> Clotûrer le tournoi</button>
+            <div class="flex justify-end w-full p-2">
               <div class="flex items-center">
                 <span class="text-sm mr-2" id="label-match-restant">${nbMatchRestant} </span>
                 <button id="button-cloture" ${
@@ -1205,7 +1206,7 @@ function getTempsEcoule(dateDepart, dateFin = null, formatInteger = false) {
   if (jours >= 1) return `+ de ${jours} jour${jours > 1 ? "s" : ""}`;
   if (heures > 0) return `${heures} h ${minutes} min ${secondes} s`;
   if (minutes > 0) return `${minutes} min ${secondes} s`;
-  return `${secondes}'s`;
+  return `${secondes} s`;
 }
 
 function launchTournoi() {
@@ -1224,6 +1225,7 @@ function launchTournoi() {
 }
 
 function clotureTournoi() {
+  
   planning[currentTour].endDate = Date.now();
   planning[currentTour].closed = true;
   currentTour = null;
@@ -1988,7 +1990,7 @@ async function optimisePlanning() {
     container.innerHTML = `
       <center>
         <span>Meilleur score : ${scoreDistribution} </span> </br> 
-        <span class="text-sm">Il faut avoir le score le plus petit possible</span> </br> 
+        <span class="text-sm">Il faut avoir le score le plus petit possible</span> </br> </br> 
         <div class="w-full">Nombre de distribution testée : ${nbDistributionTeste} </div>
       </center>
     `;
