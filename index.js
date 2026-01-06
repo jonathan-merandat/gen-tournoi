@@ -2,6 +2,22 @@
 // un tournoi de badminton en double avec des contraintes complexes
 // et une interface utilisateur complète responsive et interactive.
 const version = 0.3;
+
+// Empêcher le zoom au double-tap sur mobile
+document.addEventListener('touchstart', function(event) {
+  if (event.touches.length > 1) {
+    event.preventDefault();
+  }
+}, { passive: false });
+
+let lastTouchEnd = 0;
+document.addEventListener('touchend', function(event) {
+  const now = Date.now();
+  if (now - lastTouchEnd <= 300) {
+    event.preventDefault();
+  }
+  lastTouchEnd = now;
+}, { passive: false });
 // -- SETUP GLOBAL DATA --
 const levels = [
   "NC",
@@ -91,6 +107,8 @@ let currentEditMatchIndex = -1;
 let currentStopTimer = null;
 
 let stopRequested = false;
+let resultsRevealed = tournoi.resultsRevealed || false;
+let genderFilter = "tous"; // 'tous', 'H', 'F'
 
 let intervals = {
   topLeft: null,
@@ -174,6 +192,8 @@ function reset() {
     scores = {};
     planning = [];
     currentTour = -1;
+    resultsRevealed = false;
+    genderFilter = "tous";
     saveData();
     renderPreparationSection();
     renderTournament();
@@ -197,7 +217,8 @@ function saveData() {
       currentNbEgaliteSexeNonRespecte,
       currentNbEcartMaxNonRespecte, 
       nbDistributionTeste,
-      scoreDistribution
+      scoreDistribution,
+      resultsRevealed
     })
   );
 }
@@ -542,7 +563,7 @@ function renderTournament() {
 
           <span>${
             currentTour == null
-              ? `Tournoi terminé - durée : ${getTpsTotal()}`
+              ? `Tournoi terminé - Durée : ${getTpsTotal()}`
               : currentTour == -1
               ? "Prêt à lancer !"
               : ``
@@ -556,8 +577,8 @@ function renderTournament() {
           
         </div>
         ${
-          currentTour == null
-            ? `<button onclick="togglePanel()">📊</button>`
+          currentTour == -1 || currentTour == null
+            ? `<button onclick="renderPanelTournament();togglePanel();">📊</button>`
             : ""
         }
       </div>
@@ -574,14 +595,24 @@ function renderTournament() {
           } ${
             currentTour == indexTour && "bg-green-100"
           }" onclick="this.classList.toggle('open')">
-                <h3 class="">
-                Tour ${indexTour + 1} ${
-            currentTour == indexTour
-              ? "en cours"
-              : tour.closed
-              ? "terminé"
-              : "à venir"
-          }</h3>
+                <h3 class="flex justify-between items-center w-full">
+                <span> Tour ${indexTour + 1}</span>
+                ${
+                  tour.closed ? 
+                  `<span> Durée : ${getTpsTour(indexTour)}</span>` 
+                  : ``
+                }
+                <span>
+                 ${
+                  currentTour == indexTour
+                    ? " En cours"
+                    : tour.closed
+                    ? " Terminé"
+                    : " À venir"      
+                  }
+                </span>
+          </h3>
+
 
                 <span>▼</span>
          
@@ -1028,6 +1059,20 @@ function getLevelTournament(p, customStyle) {
     } ">${p.level}</div>`;
 }
 
+function getTpsTour(indexTour) {
+  const tour = planning[indexTour];
+  const timeTotal = getTempsEcoule(tour.startDate, tour.endDate, true);
+  
+  if (timeTotal >= 86400) return "plus de 24h"; 
+  const heures = Math.floor(timeTotal / 3600);
+  const minutes = Math.floor((timeTotal % 3600) / 60);
+  const secondes = timeTotal % 60;
+
+  if (heures > 0) return `${heures}h ${minutes} min ${secondes} s`;
+  if (minutes > 0) return `${minutes} min ${secondes} s`;
+  return `${secondes} s`;
+}
+
 function getTpsTotal() {
   const timeTotal = planning.reduce(
     (acc, tour) =>
@@ -1041,9 +1086,9 @@ function getTpsTotal() {
   const minutes = Math.floor((timeTotal % 3600) / 60);
   const secondes = timeTotal % 60;
 
-  if (heures > 0) return `${heures}h ${minutes}' ${secondes}''`;
-  if (minutes > 0) return `${minutes}' ${secondes}''`;
-  return `${secondes}''`;
+  if (heures > 0) return `${heures}h ${minutes} min ${secondes} s`;
+  if (minutes > 0) return `${minutes} min ${secondes} s`;
+  return `${secondes} s`;
 }
 
 function renderResults() {
@@ -1053,36 +1098,99 @@ function renderResults() {
   const joueurs = players.map((p) => ({
     nom: p.name,
     id: p.id,
+    gender: p.gender,
     points: scores[p.id]?.points || 0,
     scoreTotal: scores[p.id]?.scoreTotal || 0,
   }));
 
   joueurs.sort((a, b) => b.points - a.points || b.scoreTotal - a.scoreTotal);
 
-  el.innerHTML = `
-    <div class="sous-header flex justify-between items-center w-full">
-      <button onclick="togglePanel(true);showSection('tournament');">⭠ Retour</button>
-      <span>Tournoi terminé - durée : ${getTpsTotal()}</span>
-      <button onclick="togglePanel()">⚙️ Paramètres</button>
-    </div>
+  // Filtrer selon le filtre sexe
+  const joueursFiltrés = joueurs.filter(j => {
+    if (genderFilter === "tous") return true;
+    return j.gender === genderFilter;
+  });
 
-    <div class="w-full flex flex-col justify-center items-center">
-      <h1 class="text-xl mt-4">Résultats</h1>
-      <ol class="mt-4">
-        ${joueurs
-          .map(
-            (j, i) => `
-          <li class="mb-2">
-            <strong>${i + 1}.</strong> ${j.nom} — 
-            ${j.points} pts 
-            <span class="text-gray-500 text-sm">(score : ${j.scoreTotal})</span>
-          </li>
-        `
-          )
-          .join("")}
-      </ol>
+  const filterButtonsHtml = `
+    <div class="mt-4 flex gap-0">
+      <button class="px-4 py-2 ${genderFilter === 'tous' ? 'genderFilterActif' : 'bg-gray-300 text-black'} rounded-l-md" onclick="genderFilter='tous';renderResults();">Tous</button>
+      <button class="px-4 py-2 ${genderFilter === 'H' ? 'genderFilterActif' : 'bg-gray-300 text-black'} border-l border-r border-gray-400" onclick="genderFilter='H';renderResults();">Hommes</button>
+      <button class="px-4 py-2 ${genderFilter === 'F' ? 'genderFilterActif' : 'bg-gray-300 text-black'} rounded-r-md" onclick="genderFilter='F';renderResults();">Dames</button>
     </div>
   `;
+
+  if (!resultsRevealed) {
+    el.innerHTML = `
+      <div class="sous-header flex justify-between items-center w-full">
+        <button onclick="togglePanel(true);showSection('tournament');">⭠ Retour</button>
+        <span>Résultats</span>
+        <button onclick="togglePanel()">⚙️ Points</button>
+      </div>
+
+      <div class="w-full h-full flex flex-col justify-center items-center">
+        <button id="reveal-button" class="reveal-btn" onmousedown="startReveal()" onmouseup="cancelReveal()" onmouseleave="cancelReveal()" ontouchstart="startReveal()" ontouchend="cancelReveal()">
+          Cliquez et maintenez<br/>pour révéler les résultats
+        </button>
+      </div>
+
+      <style>
+        .reveal-btn {
+          position: relative;
+          width: 280px;
+          height: 140px;
+          font-size: 18px;
+          font-weight: bold;
+          color: black;
+          border: none;
+          border-radius: 10px;
+          cursor: pointer;
+          background: linear-gradient(90deg, #3b82f6 0%, #3b82f6 0%, #e5e7eb 0%, #e5e7eb 100%);
+          background-size: 200% 100%;
+          background-position: 0% 0%;
+          transition: background-position 0.05s linear;
+          user-select: none;
+          -webkit-user-select: none;
+        }
+
+        .reveal-btn:active {
+          transform: scale(0.98);
+        }
+      </style>
+    `;
+
+    // Ajouter les event listeners
+    setTimeout(() => {
+      const btn = document.getElementById('reveal-button');
+      if (btn) {
+        btn.addEventListener('contextmenu', e => e.preventDefault());
+      }
+    }, 0);
+  } else {
+    el.innerHTML = `
+      <div class="sous-header flex justify-between items-center w-full">
+        <button onclick="togglePanel(true);showSection('tournament');">⭠ Retour</button>
+        <span>Résultats</span>
+        <button onclick="togglePanel()">⚙️ Points</button>
+      </div>
+
+      <div class="w-full flex flex-col justify-center items-center">
+        ${filterButtonsHtml}
+        <ol class="mt-4">
+          ${joueursFiltrés
+            .map(
+              (j, i) => `
+            <li class="mb-2">
+              <strong>${i + 1}.</strong> ${j.nom} ${j.gender === 'H' ? '♂️' : '♀️'} — 
+              ${j.points} pts 
+              <span class="text-gray-500 text-sm">(score : ${j.scoreTotal})</span>
+            </li>
+          `
+            )
+            .join("")}
+        </ol>
+      </div>
+    `;
+  }
 }
 
 function calculerScores() {
@@ -1122,12 +1230,56 @@ function calculerScores() {
   return scores;
 }
 
+let revealTimeout = null;
+const REVEAL_DURATION = 2000; // 2 secondes pour révéler
+
+function startReveal() {
+  if (revealTimeout) return;
+  
+  const btn = document.getElementById('reveal-button');
+  if (!btn) return;
+  
+  const startTime = Date.now();
+  const animate = () => {
+    const elapsed = Date.now() - startTime;
+    const progress = Math.min(elapsed / REVEAL_DURATION, 1);
+    const percentage = progress * 100;
+    
+    btn.style.background = `linear-gradient(90deg, #3b82f6 0%, #3b82f6 ${percentage}%, #e5e7eb ${percentage}%, #e5e7eb 100%)`;
+    
+    if (progress >= 1) {
+      // Animation complète, révéler les résultats
+      resultsRevealed = true;
+      saveData();
+      renderResults();
+      clearTimeout(revealTimeout);
+      revealTimeout = null;
+    } else {
+      revealTimeout = requestAnimationFrame(animate);
+    }
+  };
+  
+  revealTimeout = requestAnimationFrame(animate);
+}
+
+function cancelReveal() {
+  if (revealTimeout) {
+    cancelAnimationFrame(revealTimeout);
+    revealTimeout = null;
+    
+    const btn = document.getElementById('reveal-button');
+    if (btn) {
+      btn.style.background = `linear-gradient(90deg, #3b82f6 0%, #3b82f6 0%, #e5e7eb 0%, #e5e7eb 100%)`;
+    }
+  }
+}
+
 function renderMenuGlobal() {
   return `<div style="position: relative; display: inline-block;">
     <button id="btn-menu" class="text-2xl" onclick="toggleMenu();">☰</button>
     <div id="menu-contextuel" class="menu-context" style="display:none;">
       <div class="menu-item" onclick="reset(); toggleMenu();">↺ Reset</div>  
-      <div class="menu-item" onclick="showAboutPopup(); toggleMenu();">🛈 A propos</div>
+      <div class="menu-item" onclick="showAboutPopup(); toggleMenu();">A propos</div>
     </div>
   </div>`;
 }
@@ -1203,7 +1355,7 @@ function getTempsEcoule(dateDepart, dateFin = null, formatInteger = false) {
   const heures = Math.floor((ecoule % 86400) / 3600);
   const minutes = Math.floor((ecoule % 3600) / 60);
   const secondes = ecoule % 60;
-  if (jours >= 1) return `+ de ${jours} jour${jours > 1 ? "s" : ""}`;
+  if (jours >= 1) return `plus de ${jours} jour${jours > 1 ? "s" : ""}`;
   if (heures > 0) return `${heures} h ${minutes} min ${secondes} s`;
   if (minutes > 0) return `${minutes} min ${secondes} s`;
   return `${secondes} s`;
@@ -1337,14 +1489,8 @@ function renderPanelResults() {
   const panel = document.getElementById("panel");
   panel.innerHTML = `
   <h3 class="header flex justify-between items-center">
-  ⚙️ Paramètres
+  ⚙️ Attribution des points 
   <button onclick="togglePanel(true);">✖</button>
-  </h3>
-  ${"" /*<div id="contrainte-panel">*/}
-  ${"" /*renderContraintes("panel", true)*/}
-  </div>
-  <h3 class="sous-header flex justify-between">
-  ⚙️ Attribution des points <button onclick="renderResults();">↺</button>
   </h3>
   <div class="pl-4 mt-4">
     ${Object.entries(settings.attribPoint)
@@ -1590,10 +1736,6 @@ function shuffle(array) {
     .map((x) => x[1]);
 }
 
-function getLevelScore(p) {
-  return levelValue[p.level] || 0;
-}
-
 function attentePenalty(joueurs, joueursAttente) {
   let penalty = 0;
   for (const joueur of joueurs) {
@@ -1638,11 +1780,6 @@ function sameOpponentCount(p1, p2, currentPlanning) {
   return count;
 }
 
-function getMatchStartScore(match) {
-  const joueurs = [...match.team1, ...match.team2];
-  return joueurs.reduce((acc, p) => acc + getLevelScore(p), 0);
-}
-
 function permutations(arr) {
   if (arr.length <= 1) return [arr];
   const result = [];
@@ -1657,8 +1794,8 @@ function permutations(arr) {
 
 
 function getInitialScore(team1, team2) {
-  let scoreTeam1 = team1.reduce((acc, p) => acc + getLevelScore(p), 0);
-  let scoreTeam2 = team2.reduce((acc, p) => acc + getLevelScore(p), 0);
+  let scoreTeam1 = team1.reduce((acc, p) => acc + getLevel(p), 0);
+  let scoreTeam2 = team2.reduce((acc, p) => acc + getLevel(p), 0);
   const minScore = Math.min(scoreTeam1, scoreTeam2);
   const maxScore = Math.max(scoreTeam1, scoreTeam2);
   const diff = settings.isScoreNegatif
@@ -1984,6 +2121,9 @@ async function optimisePlanning() {
         score: currentScore, 
         attente: attenteJoueurs 
       };
+      planning = transformerDistribution(meilleureDistribution);
+      renderTournament();
+      renderPanelTournament();
     }
 
     const container = document.getElementById("label2-progress-bar");
@@ -1994,19 +2134,20 @@ async function optimisePlanning() {
         <div class="w-full">Nombre de distribution testée : ${nbDistributionTeste} </div>
       </center>
     `;
-    renderTournament();
-    renderPanelTournament();
-    await new Promise((r) => requestAnimationFrame(r));
+    
+    await new Promise((r) => {
+      requestAnimationFrame(() => {
+        // Utiliser setTimeout pour garantir que les événements tactiles sont traités
+        setTimeout(r, 0);
+      });
+    });
 
   }
 
   if (meilleureDistribution == null){
     alert("Aucune distribution trouvée");
   }else{
-    planning = transformerDistribution(meilleureDistribution);
     saveData();
-    renderTournament();
-    renderPanelTournament();
   }
 
   document.body.removeChild(loader);

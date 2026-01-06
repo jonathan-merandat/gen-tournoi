@@ -32,6 +32,7 @@ body {
     color: var(--text1-color) !important;
     margin-bottom: 100px !important;
     user-select: none;
+    touch-action: manipulation;
 }
 
 input,
@@ -416,4 +417,9 @@ mark{
         transform: translateY(0);
         opacity: 1;
     }
+}
+
+.genderFilterActif{
+    background-color: var(--bg2-color);
+    color: var(--text2-color);
 }
