@@ -35,74 +35,62 @@ const levelValue = {
   N1: 0,
 };
 
-const description = {
-  equipier: {
-    label: "Coéquipier non répété",
-    desc: "Evite de rejouer plusieurs fois avec le même équipier",
-  },
-  attente: {
-    label: "Attente minimum",
-    desc: "Evite d'attendre plusieurs fois, essaye de répartir les attentes sur tout le monde",
-  },
-  adversaire: {
-    label: "Adversaire non répété",
-    desc: "Evite de rejouer plusieurs fois contre le même adversaire",
-  },
-  sexe: {
-    label: "Egalité des sexe",
-    desc: "Evite de faire jouer un mixte contre un double ou un double homme contre un double dame",
-  },
-  niveau: {
-    label: "Ecart maximum de niveau",
-    desc: "Essaye de respecter l'écart maximum pour les niveau, défini par points bonus attribués aux niveaux",
-  },
-  limitTime: {
-    label: "Temps limite par tour",
-    desc: "Si le temps est à 0 alors il n'y a pas de temps limite",
-  },
-  victoire: {
-    label: "Victoire",
-    desc: "Match remporté avec plus de 2 points d'écart",
-  },
-  "petite victoire": {
-    label: "Petite victoire",
-    desc: "Match remporté avec seulement 2 points d'écart",
-  },
-  défaite: {
-    label: "Défaite",
-    desc: "Match perdu",
-  },
-};
+const titleContrainte = {
+  equipier: "Coéquipier différents",
+  adversaire: "Adversaires différents",
+  niveau: "Ecart de point max.",
+  sexe: "Egalité des sexes",
+  isScoreNegatif: "Score négatif"
+}
+
+const descContrainte = {
+  equipier: "Eviter un maximum de jouer plusieurs fois avec le même équipier",
+  adversaire: "Eviter un maximum de jouer plusieurs fois contre le même adversaire",
+  niveau: "Eviter d'avoir des matchs avec un écart de point supérieur au maximum défini ci-dessous",
+  sexe: "Eviter d'avoir des matchs avec un nombre d'homme(s) et de dame(s) différent entre les deux équipes",
+  isScoreNegatif: "Si activer, le début du match sera par exemple de -3 / 0 au lieu de 0 / 3"
+}
 
 const defaultConfig = {
+  typeTournoi: "double",
+  DMForbidden: false,
+  DHForbidden: false,
+  DDForbidden: false,
+  allowSimpleIfTypeTournoiDouble: true,
+  genderDifferentForbidden: false,
   terrains: 7,
-  tours: 8,
+  tours: 6,
   ecartMax: 10,
   priorities: {
     equipier: 100,
-    attente: 50,
-    adversaire: 20,
-    sexe: 2,
-    niveau: 1,
+    adversaire: 60,
+    niveau: 40,
+    sexe: 20,
   },
   isScoreNegatif: false,
   attribPoint: { victoire: 5, "petite victoire": 2, défaite: 0 },
-  limitTime: 0,
+  targetTimeTour: 15, // minutes
+  activeTargetTimeTour: false,
 };
+
 let tournoi = JSON.parse(localStorage.getItem("gen-tournoi") || "{}");
 let players = tournoi.players || [];
 let settings = tournoi.settings || defaultConfig;
 let scores = tournoi.scores || {};
 let planning = tournoi.planning || [];
+let scoreDistribution = tournoi.scoreDistribution || Infinity;
+let nbDistributionTeste = tournoi.nbDistributionTeste || 0;
+let currentNbAdversaireSimpleRepetee = tournoi.currentNbAdversaireSimpleRepetee || 0;
+let currentNbAdversaireDoubleRepetee = tournoi.currentNbAdversaireDoubleRepetee || 0;
+let currentNbCoequipierRepetee = tournoi.currentNbCoequipierRepetee || 0;
+let currentNbEgaliteSexeNonRespecte = tournoi.currentNbEgaliteSexeNonRespecte || 0;
+let currentNbEcartMaxNonRespecte = tournoi.currentNbEcartMaxNonRespecte || 0;
+let currentNbJoueursAttente = tournoi.currentNbJoueursAttente || 0;
 let currentTour = tournoi.currentTour === undefined ? -1 : tournoi.currentTour;
 let currentEditMatchIndex = -1;
 let currentStopTimer = null;
 
-let opponentsMap = {}; // { playerName: { opponentName: count } }
-let teammateMap = {}; // { playerName: { teammateName: count } }
-let waitCount = {};
-let sexeIssues = [];
-let niveauIssues = [];
+let stopRequested = false;
 
 let intervals = {
   topLeft: null,
@@ -177,7 +165,7 @@ function togglePanel(forceHide = null) {
 }
 
 function reset() {
-  if (confirm("Reset ?")) {
+  if (confirm("Vous allez réinitialiser tous les paramètres (joueurs, préparation, tournoi en cours..) \n\n Voulez-vous continuer ?")) {
     if (currentStopTimer) {
       currentStopTimer();
     }
@@ -202,6 +190,14 @@ function saveData() {
       scores,
       planning,
       currentTour,
+      currentNbJoueursAttente,
+      currentNbAdversaireSimpleRepetee,
+      currentNbAdversaireDoubleRepetee,
+      currentNbCoequipierRepetee,
+      currentNbEgaliteSexeNonRespecte,
+      currentNbEcartMaxNonRespecte, 
+      nbDistributionTeste,
+      scoreDistribution
     })
   );
 }
@@ -211,7 +207,6 @@ function regenerate() {
     confirm("Un tournoi existe déjà, il va être perdu, voulez vous-continuer ?")
   ) {
     currentTour = -1;
-    prepareOptimise();
     optimisePlanning();
   }
 }
@@ -224,22 +219,55 @@ function renderPreparationSection() {
       <h2>🛠️ Préparation</h2>
     </div>
     <div class="flex flex-wrap gap-4 m-5">
-      <div class="flex flex-col flex-auto min-w-96">
-        <label for="terrains-value" class="mb-2">Nombre de terrains</label> 
-          <div class="flex items-center justify-between">
-            <div class="slider-param-terrains flex-auto mr-6"> </div>
-            <span id="terrains-value" class="w-8">${settings.terrains} </span>
-          </div>
-      </div>
-      <div class="flex flex-col flex-auto min-w-96">
-        <label for="tours-value" class="mb-2">Nombre de tours</label> 
-        <div class="flex items-center justify-between">
-            <div class="slider-param-tours flex-auto mr-6"> </div>
-            <span id="tours-value" class="w-8">${settings.tours} </span>
-          </div>
+      <div class="flex flex-col flex-auto">
+        <label for="type-tournoi-value" class="mb-2">Type de tournoi</label> 
+          <select id="type-tournoi-select" onchange="settings.typeTournoi = this.value == 'double' ? 'double' : 'simple';saveData(); renderPreparationSection();" class="w-full">
+            <option value="double" ${settings.typeTournoi === "double" ? "selected" : ""}>Double</option>
+            <option value="simple" ${settings.typeTournoi === "simple" ? "selected" : ""}>Simple</option>
+          </select>
+        ${settings.typeTournoi == "double" ? `
+        <label class="flex items-center gap-4 p-4">
+          <input type="checkbox" onchange="onChangeAllowSimpleIfTournoiDouble(event);" ${
+            settings.allowSimpleIfTypeTournoiDouble ? "checked" : ""
+          } />
+          <span class="">Autoriser les matchs simples</span>
+        </label>` : ""}
       </div>
       
+      <div class="flex flex-col flex-auto min-w-64">
+        <div class="flex flex-col flex-auto">
+          <label for="terrains-value" class="mb-2">Nombre de terrains</label> 
+            <div class="flex items-center justify-between">
+              <div class="slider slider-param-terrains flex-auto mr-6"> </div>
+              <span id="terrains-value" class="w-8 ml-2">${settings.terrains} </span>
+            </div>
+        </div>
+        <div class="flex flex-col flex-auto">
+          <label for="tours-value" class="mb-2">Nombre de tours</label> 
+          <div class="flex items-center justify-between">
+              <div class="slider slider-param-tours flex-auto mr-6"> </div>
+              <span id="tours-value" class="w-8 ml-2">${settings.tours} </span>
+            </div>
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-4 flex-auto">
+      <label class="flex items-center gap-4">
+        <input type="checkbox" onchange="onChangeActiveTargetTimeTour(event);" ${
+          settings.activeTargetTimeTour ? "checked" : ""
+        } />
+        <span class="">Définir un temps limite par tour</span>
+      </label>
+      ${settings.activeTargetTimeTour ? `
+        <div class="flex items-center justify-between">
+            <div class="slider slider-param-target-time-tour flex-auto mr-6"> </div>
+            <span id="target-time-tour-value" class="w-8 ml-2">${settings.targetTimeTour} </span>
+          </div>` : ""}
+      </div>
+      
+      
       ${renderContraintes("preparation", false)}
+
     </div>
 
     <div class="sous-header justify-between items-center">
@@ -270,7 +298,7 @@ function renderPreparationSection() {
                 </select>
               </div>
             </div>
-            <button class="btn-primary rounded min-w-12" type="submit" id="addPlayer">Ajouter</button>
+            <button class="overflow-hidden text-ellipsis btn-primary rounded min-w-12" type="submit" id="addPlayer">Ajouter</button>
           </div>
       </form>
       <div id="playerList" class="m-5 flex flex-wrap gap-4"></div>
@@ -281,11 +309,14 @@ function renderPreparationSection() {
       /*➜*/
       planning.length == 0
         ? `
-      <button class="btn-primary" onclick="prepareOptimise(); optimisePlanning();"> 🏆 Générer le tournoi</button>
+      <button class="btn-primary" onclick="optimisePlanning();"> 🏆 Générer le tournoi</button>
       `
         : `
       <div class="flex justify-between w-full p-2">
-        <button class="btn-secondary" onclick="regenerate();"> ↺ Régénérer le tournoi</button>
+        ${(settings.typeTournoi === "double" && players.length >= 4) || (settings.typeTournoi !== "double" && players.length >= 2) ?
+          `<button class="btn-secondary" onclick="regenerate();"> ↺ Régénérer le tournoi</button>`
+          : `<span>Pas assez de joueurs..</span>`
+        }
         <button class="btn-primary" onclick="showSection('tournament');renderPanelTournament();"> Tournoi ${
           currentTour == null
             ? "terminé"
@@ -384,7 +415,7 @@ function renderPreparationSection() {
       connect: [true, false],
       step: 1,
       range: {
-        min: 0,
+        min: 1,
         max: 20,
       },
     });
@@ -407,7 +438,7 @@ function renderPreparationSection() {
       connect: [true, false],
       step: 1,
       range: {
-        min: 0,
+        min: 1,
         max: 20,
       },
     });
@@ -419,6 +450,27 @@ function renderPreparationSection() {
       saveData();
     });
     sliderTours.noUiSlider.on("end", (values, handle) => {
+      renderPreparationSection();
+    });
+  }
+
+  const sliderTargetTimeTour = document.body.querySelector(".slider-param-target-time-tour");
+  if (sliderTargetTimeTour) {
+    noUiSlider.create(sliderTargetTimeTour, {
+      start: parseInt(settings.targetTimeTour),
+      connect: [true, false],
+      step: 1,
+      range: {
+        min: 1,
+        max: 45,
+      },
+    });
+    sliderTargetTimeTour.noUiSlider.on("slide", (values, handle) => {
+      settings.targetTimeTour = parseInt(values[handle]);
+      document.getElementById("target-time-tour-value").innerHTML = parseInt(values[handle]);
+      saveData();
+    });
+    sliderTargetTimeTour.noUiSlider.on("end", (values, handle) => {
       renderPreparationSection();
     });
   }
@@ -444,30 +496,8 @@ function renderPreparationSection() {
     });
   });
 
-  const sliderLimitTime = document.body.querySelector(
-    ".slider-param-tps-limit"
-  );
-  if (sliderLimitTime) {
-    noUiSlider.create(sliderLimitTime, {
-      start: parseInt(settings.limitTime),
-      connect: [true, false],
-      step: 1,
-      range: {
-        min: 0,
-        max: 60,
-      },
-    });
-    sliderLimitTime.noUiSlider.on("slide", (values, handle) => {
-      const val = parseInt(values[handle]);
-      settings.limitTime = val;
-      document.getElementById("tps-limit-value").innerHTML =
-        val == 0 ? val + " min" : "Pas de temps limite par tour";
-      saveData();
-    });
-    sliderLimitTime.noUiSlider.on("end", (values, handle) => {
-      renderPreparationSection();
-    });
-  }
+  renderHandicapTournament();
+
 }
 
 function requestDeletePlayer(event, i) {
@@ -515,7 +545,7 @@ function renderTournament() {
               ? `Tournoi terminé - durée : ${getTpsTotal()}`
               : currentTour == -1
               ? "Prêt à lancer !"
-              : `Tour ${currentTour + 1}`
+              : ``
           }</span>
           
           ${
@@ -526,8 +556,8 @@ function renderTournament() {
           
         </div>
         ${
-          true /*currentTour == -1 || currentTour === null*/
-            ? `<button onclick="togglePanel()">⚙️ Paramètres</button>`
+          currentTour == null
+            ? `<button onclick="togglePanel()">📊</button>`
             : ""
         }
       </div>
@@ -614,7 +644,11 @@ function renderTournament() {
                                 </span>
                                 <div class="flex justify-between items-center h-full w-full">
                                     <div class="flex flex-col flex-1 overflow-hidden">
-                                      ${renderTeam(match.team1, "", "")}
+                                      ${renderTeam(
+                                        match.team1,
+                                        "",
+                                        "float: right;"
+                                      )}
                                     </div>
                                     ${
                                       currentEditMatchIndex == index
@@ -636,7 +670,7 @@ function renderTournament() {
                                           }', intervals, 'topLeft');"
                                           onmouseup="stopTouchScore(intervals, 'topLeft');" 
                                           onmouseleave="stopTouchScore(intervals, 'topLeft');"
-                                          ontouchstart="(event) => { event.preventDefault(); startTouchScore(true, '${
+                                          ontouchstart="(e) => { e.preventDefault(); startTouchScore(true, '${
                                             indexTour +
                                             "-" +
                                             index +
@@ -653,7 +687,7 @@ function renderTournament() {
                                           }', intervals, 'bottomLeft');"
                                            onmouseup="stopTouchScore(intervals, 'bottomLeft');" 
                                            onmouseleave="stopTouchScore(intervals, 'bottomLeft');"
-                                            ontouchstart="(event) => { event.preventDefault(); startTouchScore(false, '${
+                                            ontouchstart="(e) => { e.preventDefault(); startTouchScore(false, '${
                                               indexTour +
                                               "-" +
                                               index +
@@ -687,7 +721,7 @@ function renderTournament() {
                                       }', intervals, 'topRight');"
                                            onmouseup="stopTouchScore(intervals, 'topRight');" 
                                            onmouseleave="stopTouchScore(intervals, 'topRight');"
-                                           ontouchstart="(event) => { event.preventDefault(); startTouchScore(true, '${
+                                           ontouchstart="(e) => { e.preventDefault(); startTouchScore(true, '${
                                              indexTour +
                                              "-" +
                                              index +
@@ -704,7 +738,7 @@ function renderTournament() {
                                           }', intervals, 'bottomRight');"
                                            onmouseup="stopTouchScore(intervals, 'bottomRight');" 
                                            onmouseleave="stopTouchScore(intervals, 'bottomRight');"
-                                           ontouchstart="(event) => { event.preventDefault(); startTouchScore(false, '${
+                                           ontouchstart="(e) => { e.preventDefault(); startTouchScore(false, '${
                                              indexTour +
                                              "-" +
                                              index +
@@ -720,8 +754,8 @@ function renderTournament() {
                                   <div class="flex flex-col flex-1 overflow-hidden items-end">
                                     ${renderTeam(
                                       match.team2,
-                                      "flex-row-reverse",
-                                      ""
+                                      "text-right",
+                                      "float: left;"
                                     )}
                                   </div>
                                     
@@ -750,7 +784,11 @@ function renderTournament() {
                                   </span>
                                   <div class="flex justify-between items-center w-full">
                                     <div class="flex flex-col flex-1 overflow-hidden ">
-                                        ${renderTeam(match.team1, "", "")}
+                                        ${renderTeam(
+                                          match.team1,
+                                          "",
+                                          "float: right;"
+                                        )}
                                     </div>
                                     <div class="separator-vertical ${
                                       currentTour === indexTour ? "mx-2" : ""
@@ -758,8 +796,8 @@ function renderTournament() {
                                     <div class="flex flex-col flex-1 overflow-hidden items-end">
                                         ${renderTeam(
                                           match.team2,
-                                          "flex-row-reverse",
-                                          ""
+                                          "text-right",
+                                          "float: left;"
                                         )}
                                     </div>
                                   </div>
@@ -772,7 +810,27 @@ function renderTournament() {
                     })
                     .join("")}
                 </div>
-              </div>
+                
+            </div>
+            ${tour.attentes.length > 0 ? 
+              `<div class="flex justify-center flex-wrap w-full bg-gray-10 m-2">
+                <h3>Joueurs en attente </h3>
+                <div class="flex justify-center flex-wrap gap-4 w-full">
+                  ${tour.attentes
+                    .map((player, index) => {
+                      return `
+                      <div class="block truncate player-attente player-attente-${
+                          player.gender
+                        }">
+                        <span>${player.name}</span>
+                        ${/*getLevelTournament(player)*/ ""}
+                      </div>
+                      `;
+                    })
+                    .join("")}
+                </div>
+              </div>` : ""
+            }
             </div>
         `;
         })
@@ -908,8 +966,7 @@ function getNombreMatchRestant() {
       return "";
     } else {
       const s = nbMatchTotal - matchClosed > 1 ? "s" : "";
-      return matchClosed + " / " + nbMatchTotal;
-      //return nbMatchTotal - matchClosed + ` match${s} restant${s}`;
+      return nbMatchTotal - matchClosed + ` match${s} restant${s}`;
     }
   } else {
     return "";
@@ -921,10 +978,10 @@ function renderTeam(team, customClass, customStyle) {
     ${team
       .map((player) => {
         return `
-          <div class="flex justify-between player-tournament player-tournament-${
+          <div class="block truncate player-tournament player-tournament-${
             player.gender
           } ${customClass}">
-          <span class="block truncate">${player.name}</span>
+          <span>${player.name}</span>
           ${getLevelTournament(player, customStyle)}
           </div>
           
@@ -934,7 +991,7 @@ function renderTeam(team, customClass, customStyle) {
 }
 
 function renderSliderScore(id) {
-  return `<div id="${id}" class="slider-score flex-auto m-4 h-24"> </div>`;
+  return `<div id="${id}" class="slider slider-score flex-auto m-4 h-24"> </div>`;
 }
 
 function getLevelTournament(p, customStyle) {
@@ -1004,15 +1061,12 @@ function renderResults() {
   el.innerHTML = `
     <div class="sous-header flex justify-between items-center w-full">
       <button onclick="togglePanel(true);showSection('tournament');">⭠ Retour</button>
-        <button onclick="exportResultsToPDF()">📄 Exporter en PDF</button>
+      <span>Tournoi terminé - durée : ${getTpsTotal()}</span>
       <button onclick="togglePanel()">⚙️ Paramètres</button>
     </div>
 
-    <div id="listResult" class="w-full flex flex-col justify-center items-center">
-      <div class="flex w-96 justify-between items-center mt-8">
-        <h1 class="text-xl">Résultats</h1>
-        <span class="text-xl">Durée : ${getTpsTotal()}</span>
-      </div>
+    <div class="w-full flex flex-col justify-center items-center">
+      <h1 class="text-xl mt-4">Résultats</h1>
       <ol class="mt-4">
         ${joueurs
           .map(
@@ -1072,6 +1126,7 @@ function renderMenuGlobal() {
     <button id="btn-menu" class="text-2xl" onclick="toggleMenu();">☰</button>
     <div id="menu-contextuel" class="menu-context" style="display:none;">
       <div class="menu-item" onclick="reset(); toggleMenu();">↺ Reset</div>  
+      <div class="menu-item" onclick="showAboutPopup(); toggleMenu();">🛈 A propos</div>
     </div>
   </div>`;
 }
@@ -1079,6 +1134,49 @@ function renderMenuGlobal() {
 function toggleMenu() {
   const menu = document.getElementById("menu-contextuel");
   menu.style.display = menu.style.display === "none" ? "block" : "none";
+}
+
+function showAboutPopup() {
+  const popup = document.createElement("div");
+  popup.id = "about-popup";
+  popup.className = "popup-overlay";
+  popup.innerHTML = `
+    <div class="popup-content overflow-auto w-full m-10">
+      <h2>Générateur de tournoi de Badminton</h2>
+
+      <h3 style="font-weight: bold;">A propos du développeur</h3>
+      <p>Développé par <mark>Jonathan Merandat</mark>, joueur de badminton et passionné de développement web depuis des années, ce générateur de tournoi est mis à disposition gratuitement.</br>
+      <p>Cette application permet de générer automatiquement des matchs de badminton en double, en simple avec des contraintes personnalisées.</p>
+      
+      <h3 style="font-weight: bold;">Confidentialité des données</h3>
+      <p>Toutes les informations saisies sont uniquement stocké en local sur le terminal (smartphone, ordinateur, etc...)</p>
+      
+      <h3 style="font-weight: bold;">Usage</h3>
+      <p>
+        <span>Préparer le tournoi en renseigner les joueurs et les paramètres.</span><br/>
+        <span>Lancer le tournoi et gérer les scores en temps réel.</span><br/>
+        <span>Consulter les résultats à la fin du tournoi.</span>
+      </p>
+
+      <h2  style="text-align: center;">Bon tournois ! 🏸</h2>
+      <center><button class="btn-primary" style="text-align: center;" onclick="closeAboutPopup()">Fermer</button></center>
+    </div>
+  `;
+  
+  popup.onclick = function(e) {
+    if (e.target === popup) {
+      closeAboutPopup();
+    }
+  };
+  
+  document.body.appendChild(popup);
+}
+
+function closeAboutPopup() {
+  const popup = document.getElementById("about-popup");
+  if (popup) {
+    popup.remove();
+  }
 }
 
 function afficherTempsEcoule(dateDepart, currentTour) {
@@ -1098,29 +1196,16 @@ function afficherTempsEcoule(dateDepart, currentTour) {
 function getTempsEcoule(dateDepart, dateFin = null, formatInteger = false) {
   const maintenant = dateFin ? dateFin : new Date();
   const ecoule = Math.floor((maintenant - dateDepart) / 1000);
-  let valeur = ecoule;
+  if (formatInteger) return ecoule;
 
-  let prefixe = "";
-  if (settings.limitTime != 0) {
-    valeur = settings.limitTime - ecoule;
-    if (valeur < 0) {
-      prefixe = "-";
-      valeur = Math.abs(valeur);
-    }
-  }
-
-  if (formatInteger)
-    return settings.limitTime != null ? prefixe + valeur : ecoule;
-
-  const jours = Math.floor(valeur / 86400);
-  const heures = Math.floor((valeur % 86400) / 3600);
-  const minutes = Math.floor((valeur % 3600) / 60);
-  const secondes = valeur % 60;
-
-  if (jours >= 1) return `${prefixe}+ de ${jours} jour${jours > 1 ? "s" : ""}`;
-  if (heures > 0) return `${prefixe}${heures}h ${minutes}' ${secondes}''`;
-  if (minutes > 0) return `${prefixe}${minutes}' ${secondes}''`;
-  return `${prefixe}${secondes}''`;
+  const jours = Math.floor(ecoule / 86400);
+  const heures = Math.floor((ecoule % 86400) / 3600);
+  const minutes = Math.floor((ecoule % 3600) / 60);
+  const secondes = ecoule % 60;
+  if (jours >= 1) return `+ de ${jours} jour${jours > 1 ? "s" : ""}`;
+  if (heures > 0) return `${heures} h ${minutes} min ${secondes} s`;
+  if (minutes > 0) return `${minutes} min ${secondes} s`;
+  return `${secondes}'s`;
 }
 
 function launchTournoi() {
@@ -1170,82 +1255,80 @@ function clotureTour() {
 
 function renderContraintes() {
   const retour = `<button class="accordion p-2 flex justify-between items-center" onclick="this.classList.toggle('open')">
-        <span>Options avancées </span>
+        <span>⚙️ Options avancées</span>
         <span>▼</span>
         </button> 
   <div class="accordion-content flex-wrap gap-4 w-full"> 
-  <h3>Gestion du tournoi</h3>
-    <div class="flex flex-col flex-auto min-w-96">
-      <label for="tps-limit-value" class="mb-2">Temps limite par tour</label> 
-      <div class="flex items-center justify-between">
-          <div class="slider-param-tps-limit flex-auto mr-6"> </div>
-          <span id="tps-limit-value" class="w-8">${settings.limitTime} </span>
-        </div>
+      <div class="flex flex-col flex-auto">
+          <h3 class="sous-header sous-sous-header flex justify-between mb-5">Contraintes</h3>
+          ${Object.entries(settings.priorities)
+            .map(
+              ([priority, poids]) =>
+                `<label class="flex flex-col justify-between flex-start">
+                    <span class="">${titleContrainte[priority]}</span>
+                    <div class="w-128 text-xs italic">${descContrainte[priority]}</div>
+                    <div class="flex items-center gap-2">
+                      <div id="slider slider-contrainte-${priority}" class="slider-contrainte flex-auto mx-6 my-2"> </div>
+                      <span id="slider-contrainte-label-${priority}" class="w-12">${poids}</span>
+                      </div>
+                  </label>`
+            )
+            .join("")}
+
+            ${settings.typeTournoi == "double" ? `
+          <div class="flex flex-col flex-auto gap-1">
+            <label class="flex gap-4">
+              <input type="checkbox" onchange="onChangeAllowDDForbidden(event);" ${
+                settings.DDForbidden ? "checked" : ""
+              } />
+              <span class="">Interdire les doubles dame</span>
+            </label>
+            <label class="flex gap-4">
+              <input type="checkbox" onchange="onChangeAllowDHForbidden(event);" ${
+                settings.DHForbidden ? "checked" : ""
+              } />
+              <span class="">Interdire les doubles homme</span>
+            </label>
+            <label class="flex gap-4">
+              <input type="checkbox" onchange="onChangeAllowDMForbidden(event);" ${
+                settings.DMForbidden ? "checked" : ""
+              } />
+              <span class="">Interdire les doubles mixtes</span>
+            </label>
+          </div>
+            ` : ""}
+      </div>
+
+    <div class="flex flex-col flex-auto">
+        <h3 class="sous-header sous-sous-header flex justify-between mb-5">Scores initiaux</h3>
+        <div id="score-panel" class="flex flex-col"></div>
     </div>
-  <h3>Poids des contraintes</h3>
-  ${Object.entries(settings.priorities)
-    .map(
-      ([priority, poids]) =>
-        `<label class="flex justify-between items-center">
-            <span class="w-12">${priority}</span>
-            <div id="slider-contrainte-${priority}" class="slider-contrainte w-64 flex-auto mx-6 my-2"> </div>
-            <span id="slider-contrainte-label-${priority}" class="w-12">${poids}</span>
-          </label>`
-    )
-    .join("")}
-    
+
+    <div class="flex flex-col flex-auto">
+        <h3 class="sous-header sous-sous-header flex justify-between mb-5"> Handicaps et avantages</h3>
+        <div id="handicap-tournament-panel" class="flex flex-col"></div>
+    </div>
+
   </div>`;
   return retour;
-}
-
-function onInputSlider(e, from, priority, refreshTournament) {
-  settings.priorities[priority] = parseInt(e.currentTarget.value);
-  document.getElementById(from + "_value_slider_" + priority).innerHTML =
-    e.currentTarget.value;
-  saveData();
-  if (refreshTournament) {
-    generePlanning().then(() => {
-      renderTournament();
-      renderStats();
-    });
-  }
-}
-
-function onInputScore(e, from, priority, refreshTournament) {
-  /*settings.priorities[priority] = parseInt(e.currentTarget.value);
-  document.getElementById(from + "_value_slider_" + priority).innerHTML =
-    e.currentTarget.value;
-  saveData();
-  if (refreshTournament) {
-    generePlanning().then(() => {
-      renderTournament();
-      renderStats();
-    });
-  }*/
 }
 
 function renderPanelTournament() {
   const panel = document.getElementById("panel");
   panel.innerHTML = `
   <h3 class="header flex justify-between items-center">
-  ⚙️ Paramètres
+  📊 Statistiques
   <button onclick="togglePanel(true);">✖</button>
   </h3>
   ${"" /*<div id="contrainte-panel">*/}
   ${"" /*renderContraintes("panel", true)*/}
-  
-  <h3 class="sous-header flex justify-between">
-  📊 Contraintes <button onclick="evaluerPlanning();renderStats();">↺</button>
-  </h3>
+  <div class="flex flex-col gap-4 my-4">
+  <div class="ml-4">Score de distribution : ${scoreDistribution == 0 ? "0 (Parfait)" : scoreDistribution}</div>
+  <div class="ml-4">Nombre de distribution testées : ${nbDistributionTeste}</div>
   <div id="stats-tournament-panel" class="flex flex-col"></div>
-  <h3 class="sous-header flex justify-between">
-  ⚙️ Handicaps et avantages
-  </h3>
-  <div id="handicap-tournament-panel" class="flex flex-col"></div>
+  </div>
   `;
-  evaluerPlanning();
   renderStats();
-  renderHandicapTournament();
 }
 
 function renderPanelResults() {
@@ -1303,134 +1386,6 @@ function renderPanelResults() {
   renderResults();
 }
 
-function evaluerPlanning() {
-  let total = 0,
-    invalids = 0;
-  opponentsMap = {}; // { playerName: { opponentName: count } }
-  teammateMap = {}; // { playerName: { teammateName: count } }
-  waitCount = {};
-  sexeIssues = [];
-  niveauIssues = [];
-
-  planning.forEach((tour, tourIdx) => {
-    const playersInTour = new Set();
-    tour.matchs.forEach((match, matchIdx) => {
-      const allPlayers = [...match.team1, ...match.team2];
-      allPlayers.forEach((p) => playersInTour.add(p.name));
-
-      match.team1.forEach((p1) => {
-        match.team2.forEach((p2) => {
-          opponentsMap[p1.name] = opponentsMap[p1.name] || {};
-          opponentsMap[p1.name][p2.name] =
-            (opponentsMap[p1.name][p2.name] || 0) + 1;
-        });
-      });
-
-      [match.team1, match.team2].forEach((team) => {
-        team.forEach((p1) => {
-          team.forEach((p2) => {
-            if (p1.name !== p2.name) {
-              teammateMap[p1.name] = teammateMap[p1.name] || {};
-              teammateMap[p1.name][p2.name] =
-                (teammateMap[p1.name][p2.name] || 0) + 1;
-            }
-          });
-        });
-      });
-
-      const s1 = scores[`${tourIdx}-${matchIdx}-t1`];
-      const s2 = scores[`${tourIdx}-${matchIdx}-t2`];
-      if (typeof s1 === "number" && typeof s2 === "number") {
-        total++;
-        if (
-          !(
-            s1 >= 21 &&
-            s2 >= 0 &&
-            Math.abs(s1 - s2) >= 2 &&
-            s1 <= 32 &&
-            s2 <= 32
-          )
-        )
-          invalids++;
-        j;
-      }
-
-      const isMixte = (team) =>
-        team.filter((p) => p.gender === "F").length === 1;
-      const isDoubleHomme = (team) => team.every((p) => p.gender === "M");
-      const isDoubleFemme = (team) => team.every((p) => p.gender === "F");
-
-      const team1Mixte = isMixte(match.team1);
-      const team2Mixte = isMixte(match.team2);
-      const team1H = isDoubleHomme(match.team1);
-      const team2H = isDoubleHomme(match.team2);
-      const team1F = isDoubleFemme(match.team1);
-      const team2F = isDoubleFemme(match.team2);
-
-      if (
-        (team1Mixte && (team2H || team2F)) ||
-        (team2Mixte && (team1H || team1F)) ||
-        (team1H && team2F) ||
-        (team2H && team1F)
-      ) {
-        sexeIssues.push({
-          tour: tourIdx + 1,
-          terrain: matchIdx + 1,
-          team1: match.team1.map((p) => p.name).join(" & "),
-          team2: match.team2.map((p) => p.name).join(" & "),
-        });
-      }
-
-      const ecart = Math.abs(match.initialScoreTeam1 - match.initialScoreTeam2);
-      if (ecart > settings.ecartMax) {
-        niveauIssues.push({
-          tour: tourIdx + 1,
-          terrain: matchIdx + 1,
-          ecart,
-        });
-      }
-    });
-
-    players.forEach((p) => {
-      if (!playersInTour.has(p.name)) {
-        waitCount[p.name] = waitCount[p.name] || [];
-        waitCount[p.name].push(tourIdx + 1);
-      }
-    });
-  });
-
-  let score = 0;
-
-  // Adversaires rencontrés plusieurs fois
-  let repeatOpponentCount = 0;
-  for (const key in opponentsMap) {
-    repeatOpponentCount += Object.entries(opponentsMap[key]).reduce(
-      (acc, data) => (acc + data > 1 ? data - 1 : 0)
-    );
-  }
-  repeatOpponentCount /= 2;
-  score += repeatOpponentCount * settings.priorities.adversaire;
-
-  // Coéquipiers répétés
-  let repeatTeammateCount = 0;
-  for (const key in teammateMap) {
-    repeatTeammateCount += Object.entries(teammateMap[key]).length;
-  }
-  score += repeatTeammateCount * settings.priorities.equipier;
-
-  // Nombre total d'attentes
-  const totalWaits = Object.values(waitCount).reduce((a, b) => a + b.length, 0);
-  score += totalWaits * settings.priorities.attente;
-
-  // Problèmes d'équilibre des sexes
-  score += sexeIssues.length * settings.priorities.sexe;
-
-  // Problèmes d'écart de niveau
-  score += niveauIssues.length * settings.priorities.niveau;
-
-  return score;
-}
-
 function renderAccordions(map, label) {
   return Object.entries(map)
     .map(([p, data]) => {
@@ -1462,10 +1417,10 @@ function renderAccordions(map, label) {
 }
 
 function renderHandicapTournament() {
-  const handicapTournament = document.getElementById(
-    "handicap-tournament-panel"
+const scoreTournament = document.getElementById(
+    "score-panel"
   );
-  handicapTournament.innerHTML = `
+  scoreTournament.innerHTML = `
     <label class="flex w-full gap-4 p-4">
       <input type="checkbox" onchange="onChangeScoreNegatif(event);" ${
         settings.isScoreNegatif ? "checked" : ""
@@ -1479,8 +1434,12 @@ function renderHandicapTournament() {
         <div class="slider-ecart-max flex-auto mx-6 my-2"> </div>
         <span id="slider-ecart-max" class="">${settings.ecartMax}</span>
       </div>
-    </label>
+    </label>`;
 
+  const handicapTournament = document.getElementById(
+    "handicap-tournament-panel"
+  );
+  handicapTournament.innerHTML = `
     <h3 class="pl-4">Point bonus</h3>
     <div class="pl-4">
     ${Object.entries(levelValue)
@@ -1525,7 +1484,6 @@ function renderHandicapTournament() {
         });
       });
       saveData();
-      evaluerPlanning();
       renderStats();
       renderTournament();
     });
@@ -1550,7 +1508,6 @@ function renderHandicapTournament() {
     });
     sliderEcartMax.noUiSlider.on("end", (values, handle) => {
       saveData();
-      evaluerPlanning();
       renderStats();
     });
   }
@@ -1558,161 +1515,67 @@ function renderHandicapTournament() {
 
 function onChangeScoreNegatif(event) {
   settings.isScoreNegatif = event.currentTarget.checked;
-  planning.forEach((tour) => {
-    tour.matchs.forEach((match) => {
-      const [initialScoreTeam1, initialScoreTeam2] = getInitialScore(
-        match.team1,
-        match.team2
-      );
-      match.initialScoreTeam1 = initialScoreTeam1;
-      match.initialScoreTeam2 = initialScoreTeam2;
-    });
-  });
   saveData();
-  renderTournament();
+}
+
+function onChangeAllowSimpleIfTournoiDouble(event) {
+  settings.allowSimpleIfTypeTournoiDouble = event.currentTarget.checked;
+  saveData();
+}
+function onChangeActiveTargetTimeTour(event) {
+  settings.activeTargetTimeTour = event.currentTarget.checked;
+  saveData();
+  renderPreparationSection();
+}
+function onChangeAllowDDForbidden(event) {
+  settings.DDForbidden = event.currentTarget.checked;
+  saveData();
+}
+function onChangeAllowDHForbidden(event) {
+  settings.DHForbidden = event.currentTarget.checked;
+  saveData();
+}
+function onChangeAllowDMForbidden(event) {
+  settings.DMForbidden = event.currentTarget.checked;
+  saveData();
 }
 
 function renderStats() {
   const stats = document.getElementById("stats-tournament-panel");
 
-  const waitList = Object.entries(waitCount).sort(
-    (a, b) => b[1].length - a[1].length
-  );
-
-  const coequipierContrainte = renderAccordions(teammateMap, "");
-  const nbCoequipierContrainte = Object.entries(teammateMap).reduce(
-    (acc, [p, data]) =>
-      acc +
-      Object.entries(data).reduce(
-        (acc2, [p2, data2]) => acc2 + (data2 > 1 ? data2 - 1 : 0),
-        0
-      ),
-    0
-  );
-  const adversaireContrainte = renderAccordions(opponentsMap, "");
-  const nbAdversaireContrainte = Object.entries(opponentsMap).reduce(
-    (acc, [p, data]) =>
-      acc +
-      Object.entries(data).reduce(
-        (acc2, [p2, data2]) => acc2 + (data2 > 1 ? data2 - 1 : 0),
-        0
-      ),
-    0
-  );
-
   stats.innerHTML = `
-  ${
-    coequipierContrainte == ""
+  ${settings.typeTournoi == "double" ? 
+    (currentNbCoequipierRepetee == 0
       ? `<span class="p-2">✅ Aucun coéquipier identique</span>`
-      : `<button class="accordion p-2 flex justify-between items-center" onclick="this.classList.toggle('open')">
-          <span>❌ ${nbCoequipierContrainte} coéquipiers répétés</span>
-          <span>▼</span>
-        </button>
-      </div>
-      <div class="accordion-content">
-        <div class="flex flex-col w-full pl-4">
-          ${coequipierContrainte}
-        </div>
-      </div>`
+      : `<span class="p-2">❌ ${currentNbCoequipierRepetee} coéquipiers répétés</span>`)
+      : ""
   }
 
   ${
-    adversaireContrainte == ""
+    settings.typeTournoi == "double" ? 
+    (currentNbAdversaireDoubleRepetee + currentNbAdversaireSimpleRepetee == 0
       ? `<span class="p-2">✅ Aucun adversaire identique</span>`
-      : `<button class="accordion p-2 flex justify-between items-center" onclick="this.classList.toggle('open')">
-          <span>⚠ ${nbAdversaireContrainte} adversaires répétés</span>
-          <span>▼</span>
-        </button>
-       <div class="accordion-content">
-        <div class="flex flex-col w-full pl-4">
-          ${adversaireContrainte}
-        </div>
-      </div>`
+      : `<span class="p-2">⚠ ${currentNbAdversaireDoubleRepetee + currentNbAdversaireSimpleRepetee} adversaires répétés</span>`)
+      : ""
   }
 
   ${
-    waitList.length == 0
+    currentNbJoueursAttente == 0
       ? `<span class="p-2">✅ Aucun joueur en attente</span>`
-      : `<button class="accordion p-2 flex justify-between items-center" onclick="this.classList.toggle('open')">
-        <span>⚠ ${waitList.length} joueurs en attente </span>
-        <span>▼</span>
-        </button> 
-        <div class="accordion-content pl-4">
-        <div class="flex flex-col w-full">
-           ${waitList
-             .map(
-               ([name, tours]) => `
-                <button class="accordion" onclick="this.classList.toggle('open')">
-                  <div class="flex pl-4">
-                    <span class="w-full">+ ${name}</span>
-                    <span class="justify-center inline-flex items-center rounded-md bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-800 ring-1 ring-yellow-600/20 ring-inset">x${
-                      tours.length
-                    }</span>
-                  </div></button>
-                <div class="accordion-content pl-4">
-                  <div class="flex flex-wrap pl-4 gap-1">
-                    ${tours
-                      .map(
-                        (t) =>
-                          `<span class="justify-center inline-flex items-center rounded-md bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-800 ring-1 ring-yellow-600/20 ring-inset" >Tour ${t}</span>`
-                      )
-                      .join("")}
-                  </div>
-                </div>
-              `
-             )
-             .join("")}
-        </div>
-      </div>`
+      : `<span class="p-2">⚠ ${currentNbJoueursAttente} joueurs en attente </span>`
   }
 
   ${
-    sexeIssues.length == 0
+    currentNbEgaliteSexeNonRespecte == 0
       ? `<span class="p-2">✅ Aucun problème de mixité</span>`
-      : `<button class="accordion p-2 flex justify-between items-center" onclick="this.classList.toggle('open')">
-          <span>⚠ ${sexeIssues.length} problèmes de mixité</span>
-          <span>▼</span>
-        </button> 
-        <div class="accordion-content">
-          <div class="flex flex-col w-full">
-            ${sexeIssues
-              .map((item) => {
-                return `
-                <button class="accordion w-full flex justify-between" onclick="this.classList.toggle('open')">
-                  <span class="w-full">+ Tour ${item.tour} - Terrain ${item.terrain}</span> 
-                </button>
-                <div class="accordion-content pl-4">
-                  <div class="flex flex-col w-full">
-                    <span class="flex justify-between w-full p-2 pl-4 ">${item.team1} vs ${item.team2}</span>
-                  </div>
-                </div>`;
-              })
-              .join("")}
-          </div>
-        </div>`
+      : `<span class="p-2">⚠ ${currentNbEgaliteSexeNonRespecte} problèmes de mixité</span>`
   }
 
   ${
-    niveauIssues.length == 0
+    currentNbEcartMaxNonRespecte == 0
       ? `<span class="p-2">✅ Aucun problème d'écart de point</span>`
-      : `<button class="accordion p-2 flex justify-between items-center" onclick="this.classList.toggle('open')">
-      <span>⚠ ${niveauIssues.length} problèmes d'écart de point</span>
-        <span>▼</span>
-        </button> 
-    <div class="accordion-content pl-4">
-      <div class="flex flex-col w-full">
-      ${niveauIssues
-        .map((item) => {
-          return `<div>
-          <span class="flex justify-between w-full p-2 pl-4 "> Tour ${item.tour} - Terrain ${item.terrain} : Ecart ${item.ecart} </span>
-        </div>
-        `;
-        })
-        .join("")}
-      </div>
-    </div>`
+      : `<span class="p-2">⚠ ${currentNbEcartMaxNonRespecte} problèmes d'écart de point</span>`
   }
-
   
 `;
 }
@@ -1778,50 +1641,6 @@ function getMatchStartScore(match) {
   return joueurs.reduce((acc, p) => acc + getLevelScore(p), 0);
 }
 
-function matchScore(team1, team2, currentPlanning, joueursAttente, params) {
-  combinaisonsTeste++;
-  let score = 0;
-  const { equipier, adversaire, attente, sexe, niveau } = params;
-
-  // Coéquipiers déjà ensemble
-  let sameCount1 = sameTeamCount(team1[0], team1[1], currentPlanning);
-  if (sameCount1 > 0) {
-    score += sameCount1 * equipier; //score += Math.pow(equipier, 2); // ou Math.pow(attente + 1, 1.5) //score -= sameCount1 * equipier;
-  }
-  let sameCount2 = sameTeamCount(team2[0], team2[1], currentPlanning);
-  if (sameCount2 > 0) {
-    score += sameCount2 * equipier; //score += Math.pow(equipier, 2); //score -= sameCount2 * equipier;
-  }
-
-  // Adversaires déjà rencontrés
-  for (const p1 of team1) {
-    for (const p2 of team2) {
-      let sameOpponent1 = sameOpponentCount(p1, p2, currentPlanning);
-      if (sameOpponent1 > 0) score += sameOpponent1 * adversaire;
-    }
-  }
-
-  // Attente minimisée
-  const tousLesJoueurs = [...team1, ...team2];
-  tousLesJoueurs.forEach((p) => {
-    const nbAttente = joueursAttente[p.id] || 0;
-    score += nbAttente * attente; //score += Math.pow(nbAttente, 2); // ou Math.pow(attente + 1, 1.5)
-  });
-
-  // Mixité
-  const mixte = (t) => t.filter((p) => p.gender === "F").length === 1;
-  if (!(mixte(team1) && mixte(team2))) score += 1 * sexe;
-
-  // Écart de niveau max autorisé
-  const tous = [...team1, ...team2];
-  const ecart =
-    Math.max(...tous.map((p) => getLevelScore(p))) -
-    Math.min(...tous.map((p) => getLevelScore(p)));
-  if (ecart > settings.ecartMax) score += 1 * niveau;
-
-  return score;
-}
-
 function permutations(arr) {
   if (arr.length <= 1) return [arr];
   const result = [];
@@ -1834,132 +1653,6 @@ function permutations(arr) {
   return result;
 }
 
-function compositeScore(
-  team1,
-  team2,
-  currentPlanning,
-  joueursAttente,
-  priorities,
-  coequipiersMap
-) {
-  let score = matchScore(
-    team1,
-    team2,
-    currentPlanning,
-    joueursAttente,
-    priorities
-  );
-
-  // Bonus pour joueurs ayant attendu
-  const bonusAttente = [...team1, ...team2].reduce((acc, p) => {
-    const attente = joueursAttente[p.id] || 0;
-    return acc + Math.pow(attente, 3); // exponentiel
-  }, 0);
-
-  return score - bonusAttente;
-}
-
-// -- GÉNÉRATION DU PLANNING --
-async function generePlanning() {
-  return new Promise(async (resolve, reject) => {
-    try {
-      let currentPlanning = [];
-      let joueursAttente = {};
-      let coequipiersMap = {};
-      maxTries = 3000; // ou settings.maxTries si défini
-      permutationUsed = [];
-      let nbTries = 0;
-      for (let tour = 0; tour < settings.tours; tour++) {
-        const joueursUtilises = new Set();
-        const tourMatches = [];
-
-        for (let terrain = 0; terrain < settings.terrains; terrain++) {
-          const combinaisons = [];
-          let playersShuffle = shuffle(players);
-          // Construire liste des joueurs disponibles
-          const disponibles = playersShuffle.filter(
-            (p) => !joueursUtilises.has(p.id)
-          );
-          if (disponibles.length < 4) break;
-          permutationTotal = factorial(disponibles.length);
-
-          const nbBoucle = Math.min(maxTries, permutationTotal);
-          for (let t = 0; t < nbBoucle; t++) {
-            const groupe = getPermutationsJoueur(disponibles);
-            if (groupe == null) break;
-
-            const team1 = [groupe[0], groupe[1]];
-            const team2 = [groupe[2], groupe[3]];
-            const score = compositeScore(
-              team1,
-              team2,
-              currentPlanning,
-              joueursAttente,
-              settings.priorities,
-              coequipiersMap
-            );
-            combinaisons.push({ team1, team2, score });
-            nbTries++;
-          }
-
-          combinaisons.sort((a, b) => a.score - b.score);
-          for (const comb of combinaisons) {
-            const [initialScoreTeam1, initialScoreTeam2] = getInitialScore(
-              comb.team1,
-              comb.team2
-            );
-            tourMatches.push({
-              team1: comb.team1,
-              team2: comb.team2,
-              scoreTeam1: initialScoreTeam1,
-              scoreTeam2: initialScoreTeam2,
-              initialScoreTeam1,
-              initialScoreTeam2,
-            });
-            comb.team1.forEach((p) => joueursUtilises.add(p.id));
-            comb.team2.forEach((p) => joueursUtilises.add(p.id));
-            [...comb.team1, ...comb.team2].forEach((p, _, arr) => {
-              if (!coequipiersMap[p.id]) coequipiersMap[p.id] = new Set();
-              arr.forEach((autre) => {
-                if (autre.id !== p.id) coequipiersMap[p.id].add(autre.id);
-              });
-            });
-
-            break;
-            //on ne prend que le premier
-          }
-
-          permutationUsed = [];
-        }
-        // Marquer les joueurs qui n'ont pas joué
-        players.forEach((p) => {
-          if (!joueursUtilises.has(p.id)) {
-            joueursAttente[p.id] = (joueursAttente[p.id] || 0) + 1;
-          }
-        });
-
-        currentPlanning.push({
-          startDate: null,
-          endDate: null,
-          matchs: tourMatches,
-        });
-
-        combinaisonsTeste += nbTries;
-        const container = document.getElementById("label-progress-bar");
-        container.innerHTML = `
-              <center>
-                <span>Combinaisons testées : ${combinaisonsTeste}
-              </span></center>
-            `;
-        await new Promise((r) => requestAnimationFrame(r));
-      }
-      resolve({ currentPlanning, nbTries });
-    } catch (e) {
-      console.error("error generatePlanning", e);
-      reject();
-    }
-  });
-}
 
 function getInitialScore(team1, team2) {
   let scoreTeam1 = team1.reduce((acc, p) => acc + getLevelScore(p), 0);
@@ -1982,120 +1675,438 @@ function getInitialScore(team1, team2) {
   }
 }
 
-let bestPlanning = null;
-let bestScore = -Infinity;
-let bestScoreStat = -Infinity;
-let scoreStat = -Infinity;
-let stopRequested = false;
-let shuffledOrders = null;
-let shuffledOrdersIndex = -1;
-let totalOrdersMessage = null;
-let totalOrders = null;
-let contraintesUsed = [];
-const rangeContraintes = {
-  attente: [10, 20],
-  equipier: [8, 10],
-  sexe: [6, 8],
-  adversaire: [4, 6],
-  niveau: [2, 4],
-};
-let contraintesPossible = null;
-let permutationUsed = [];
-let permutationTotal = null;
-let permutationInitiale = null;
-let combinaisonsTeste = null;
-
-function prepareOptimise() {
-  contraintesUsed = [];
-  contraintesPossible = generateConstraintCombinations(rangeContraintes);
-  permutationInitiale = factorial(players.length);
-  addProgressBar();
-  console.log(checkRepetitionCoherence(players.length, settings.tours));
-}
-
-/*function getOrder() {
-  let candidateOrder = null;
-  while (ordersUsed.length < totalOrders) {
-    let random = Math.floor(Math.random() * totalOrders);
-    if (!ordersUsed.includes(random)) {
-      candidateOrder = getNthPermutation(players, random);
-      ordersUsed.push(random);
-      break;
-    }
-  }
-  return candidateOrder;
-}
-*/
-
-function getSettingsPriorities() {
-  let candidateSettingsPriorities = null;
-  while (contraintesUsed.length < contraintesPossible.length) {
-    let random = Math.floor(Math.random() * contraintesPossible.length);
-    if (!contraintesUsed.includes(random)) {
-      candidateSettingsPriorities = contraintesPossible[random];
-      contraintesUsed.push(random);
-      break;
-    }
-  }
-  return candidateSettingsPriorities;
-}
-
-function getPermutationsJoueur(disponibles) {
-  let candidatePermutation = null;
-  while (permutationUsed.length < permutationTotal) {
-    let random = Math.floor(Math.random() * permutationTotal);
-    if (!permutationUsed.includes(random)) {
-      candidatePermutation = getNthPermutation(disponibles, random);
-      permutationUsed.push(random);
-      break;
-    }
-  }
-  return candidatePermutation;
-}
-
 async function optimisePlanning() {
+
+  addProgressBar();
+  const container = document.getElementById("label2-progress-bar");
+    container.innerHTML = `
+      <center>
+        <span>Démarrage ...</span> </br> 
+      </center>
+    `;
+
   showSection("tournament");
-  renderPanelTournament();
   togglePanel();
 
-  let historyBestPlanning = [];
-  bestScore = Infinity;
-  permutationTotal = factorial(players.length);
-  combinaisonsTeste = 0;
-  planning = [];
-  bestPlanning = null;
-  stopRequested = false;
-  const tentative = 1000;
-  for (let i = 0; i < tentative && !stopRequested; i++) {
-    const obj = await generePlanning();
-    const score = evaluerPlanning();
-    if (score < bestScore) {
-      bestScore = score;
-      bestPlanning = obj.currentPlanning;
-      historyBestPlanning.push(`${bestScore / 10} % `);
-      renderTournament();
-      renderStats();
-      const container = document.getElementById("label2-progress-bar");
-      container.innerHTML = `
-              <center>
-                <span>Meilleur score : ${bestScore} </span> </br> <span class="text-sm">Il faut avoir le score le plus petit possible</span></center>
-            `;
-      await new Promise((r) => requestAnimationFrame(r));
+  const n = players.length;
+  const t = settings.terrains;
+  const k = settings.tours;
+  const typeTournoiDouble = settings.typeTournoi === "double";
+  const DHForbidden = settings.DHForbidden || false;
+  const DDForbidden = settings.DDForbidden || false;
+  const DMForbidden = settings.DMForbidden || false;
+  const allowSimpleIfTypeTournoiDouble = settings.allowSimpleIfTypeTournoiDouble || false;
+  const ecartMax = settings.ecartMax || null;
+
+  let coequipierRepetee;
+  let adversaireSimpleRepetee;
+  let adversaireDoubleRepetee;
+  
+  // on attribue un id unique aux joueurs
+  players = players.map((p, index) => ({ ...p , id: index }));
+
+  let equipesPossibleSimple; 
+  let equipesPossibleDouble;
+  let matchPossibleSimple; 
+  let matchPossibleDouble;
+  let matchsPossibleTour;
+
+  scoreDistribution = Infinity;
+  let meilleureDistribution = null;
+
+  let nbAdversaireSimpleRepetee;
+  let nbAdversaireDoubleRepetee;
+  let nbCoequipierRepetee;
+  let nbEgaliteSexeNonRespecte;
+  let nbEcartMaxNonRespecte;
+
+  let playersIds = players.map((p) => p.id);
+  let curPlayersIds = null;
+  let curPlayersIdsAttente = null;
+  let curMatchPossibleTourSimple = null;
+  nbDistributionTeste = 0;
+  while (scoreDistribution != 0 &&!stopRequested) {
+
+    if (stopRequested) break;
+    if (scoreDistribution  == 0) break;
+
+    coequipierRepetee = {};
+    adversaireSimpleRepetee = {};
+    adversaireDoubleRepetee = {};
+    curPlayersIds = shuffle(playersIds); //melangeJoueurs[iter];
+    curPlayersIdsAttente = shuffle(playersIds);
+    equipesPossibleSimple = getEquipesPossibleSimple(curPlayersIds, coequipierRepetee);
+    equipesPossibleDouble = typeTournoiDouble ? getEquipesPossibleDouble(curPlayersIds, DHForbidden, DDForbidden, DMForbidden) : [];
+    matchPossibleSimple = getMatchsPossibleSimple(equipesPossibleSimple, adversaireSimpleRepetee);
+    matchPossibleDouble = typeTournoiDouble ? getMatchsPossibleDouble(equipesPossibleDouble, adversaireDoubleRepetee, coequipierRepetee) : [];
+    matchsPossibleTour = typeTournoiDouble ? [...matchPossibleDouble] : [...matchPossibleSimple];
+
+    nbAdversaireSimpleRepetee = 0;
+    nbAdversaireDoubleRepetee = 0;
+    nbCoequipierRepetee = 0;
+    nbEgaliteSexeNonRespecte = 0;
+    nbEcartMaxNonRespecte = 0;
+    coequipierRepetee = {};
+    adversaireSimpleRepetee = {};
+    adversaireDoubleRepetee = {};
+
+    const attenteJoueurs = {};
+    const currentDistribution = [];
+    let currentScore = 0;
+    currentNbJoueursAttente = 0;
+    let curMatchsPossibleTour = [];   
+
+    for (let indexTour = 0; indexTour < k; indexTour++) {
+
+      if (curMatchsPossibleTour.length == 0){
+        curMatchsPossibleTour = [...matchsPossibleTour];
+        curMatchsPossibleTour = shuffle(curMatchsPossibleTour);
+      }
+
+      //on met de côté les joueurs qui vont attendre
+      curPlayersIdsAttente = shuffle(curPlayersIdsAttente);
+      const joueursByAttente = [...curPlayersIdsAttente].sort((a, b) => {
+        const attenteA = attenteJoueurs[a] || 0;
+        const attenteB = attenteJoueurs[b] || 0;
+        return attenteA - attenteB;
+      });
+
+      const currentJoueursAttente = [];
+      let nbJoueurAttente = n - (t * (typeTournoiDouble ? 4 : 2));
+      if (nbJoueurAttente < 0) {
+        nbJoueurAttente = typeTournoiDouble ? n%4 : n%2;
+        if (typeTournoiDouble && allowSimpleIfTypeTournoiDouble && nbJoueurAttente >= 2){
+          nbJoueurAttente -= 2;
+        }
+      }
+
+      for(let i = 0; i < nbJoueurAttente; i++){
+        //on prend une fois au début, une fois à la fin pour les attentes
+        const joueurAttente = joueursByAttente[i]; 
+        currentJoueursAttente.push(joueurAttente);
+        attenteJoueurs[joueurAttente] = (attenteJoueurs[joueurAttente] || 0) + 1;
+      }
+
+      const matchsTour = [];
+      const joueursUtilises = new Set();
+      for (let indexTerrain = 0; indexTerrain < t; indexTerrain++) {
+        
+        //si plus assez de joueurs
+        if (n - joueursUtilises.size < (typeTournoiDouble ? 4 : 2)){
+          if (typeTournoiDouble){
+            if (allowSimpleIfTypeTournoiDouble){
+              curMatchPossibleTourSimple = [...matchPossibleSimple];
+            }else{
+              break;
+            }
+          }else{
+              break;
+          }
+        }
+
+        let curMatchPossible = curMatchPossibleTourSimple != null ? curMatchPossibleTourSimple : curMatchsPossibleTour;
+        let indexMatch = 0;
+        for (indexMatch = 0 ; indexMatch < curMatchPossible.length; indexMatch++){
+          //const nbJoueurRestant = n - joueursUtilises.size();
+          let curMatch = curMatchPossible[indexMatch];
+          //if (nbEssai > 0) break;
+          if (!curMatch[0].some(val => joueursUtilises.has(val)) &&
+          !curMatch[1].some(val => joueursUtilises.has(val)) &&
+          !curMatch[0].some(val => currentJoueursAttente.includes(val)) &&
+          !curMatch[1].some(val => currentJoueursAttente.includes(val))){
+            break;
+          }
+          curMatchPossible.splice(indexMatch, 1);
+          indexMatch--;
+        }
+
+        if (curMatchPossible.length == 0) {
+          curMatchsPossibleTour = [...matchsPossibleTour];
+          curMatchsPossibleTour = shuffle(curMatchsPossibleTour);
+          continue;
+        }
+
+        const match = curMatchPossible[indexMatch];
+        matchsTour.push(match);
+        for (let j = 0; j < match[0].length; j++){
+          joueursUtilises.add(match[0][j]);
+        }
+        for (let j = 0; j < match[1].length; j++){
+          joueursUtilises.add(match[1][j]);
+        }
+        curMatchPossible.splice(indexMatch, 1);
+
+        //adversaire répété
+        if (match[0].length == 1){
+          if (adversaireSimpleRepetee[match[0][0]] && adversaireSimpleRepetee[match[0][0]][match[1][0]]) {
+            adversaireSimpleRepetee[match[0][0]][match[1][0]]++;
+            nbAdversaireSimpleRepetee++;
+          } else {
+            if (adversaireSimpleRepetee[match[0][0]] == undefined){
+              adversaireSimpleRepetee[match[0][0]] = {};
+            }
+            adversaireSimpleRepetee[match[0][0]][match[1][0]] = 1;
+          }
+          if (adversaireSimpleRepetee[match[1][0]] && adversaireSimpleRepetee[match[1][0]][match[0][0]]) {
+            adversaireSimpleRepetee[match[1][0]][match[0][0]]++;
+            nbAdversaireSimpleRepetee++;
+          } else {
+            if (adversaireSimpleRepetee[match[1][0]] == undefined){
+              adversaireSimpleRepetee[match[1][0]] = {};
+            }
+            adversaireSimpleRepetee[match[1][0]][match[0][0]] = 1;
+          }
+          
+        } else if (match[0].length > 1){
+          if (adversaireDoubleRepetee[match[0][0]] && adversaireDoubleRepetee[match[0][0]][match[1][0]]) {
+            adversaireDoubleRepetee[match[0][0]][match[1][0]]++;
+            nbAdversaireDoubleRepetee++;
+          } else {
+            if (adversaireDoubleRepetee[match[0][0]] == undefined){
+              adversaireDoubleRepetee[match[0][0]] = {};
+            }
+            adversaireDoubleRepetee[match[0][0]][match[1][0]] = 1;
+          }
+          if (adversaireDoubleRepetee[match[1][0]] && adversaireDoubleRepetee[match[1][0]][match[0][0]]) {
+            adversaireDoubleRepetee[match[1][0]][match[0][0]]++;
+            nbAdversaireDoubleRepetee++;
+          } else{
+            if (adversaireDoubleRepetee[match[1][0]] == undefined){
+              adversaireDoubleRepetee[match[1][0]] = {};
+            }
+            adversaireDoubleRepetee[match[1][0]][match[0][0]] = 1;
+          }
+          if (adversaireDoubleRepetee[match[0][1]] && adversaireDoubleRepetee[match[0][1]][match[1][1]]) {
+            adversaireDoubleRepetee[match[0][1]][match[1][1]]++;
+            nbAdversaireDoubleRepetee++;
+          } else {
+            if (adversaireDoubleRepetee[match[0][1]] == undefined){
+              adversaireDoubleRepetee[match[0][1]] = {};
+            }
+            adversaireDoubleRepetee[match[0][1]][match[1][1]] = 1;
+          }
+          if (adversaireDoubleRepetee[match[1][1]] && adversaireDoubleRepetee[match[1][1]][match[0][1]]) {
+            adversaireDoubleRepetee[match[1][1]][match[0][1]]++;
+            nbAdversaireDoubleRepetee++;
+          } else {
+            if (adversaireDoubleRepetee[match[1][1]] == undefined){
+              adversaireDoubleRepetee[match[1][1]] = {};
+            }
+            adversaireDoubleRepetee[match[1][1]][match[0][1]] = 1;
+          }
+        }
+        //coequipier répété
+        if (match[0].length > 1){
+          if (coequipierRepetee[match[0][0]] && coequipierRepetee[match[0][0]][match[0][1]]) {
+            coequipierRepetee[match[0][0]][match[0][1]]++;
+            nbCoequipierRepetee++;
+          } else {
+            if (coequipierRepetee[match[0][0]] == undefined){
+              coequipierRepetee[match[0][0]] = {};
+            }
+            coequipierRepetee[match[0][0]][match[0][1]] = 1;
+          }
+          if (coequipierRepetee[match[0][1]] && coequipierRepetee[match[0][1]][match[0][0]]) {
+            coequipierRepetee[match[0][1]][match[0][0]]++;
+            nbCoequipierRepetee++;
+          } else {
+            if (coequipierRepetee[match[0][1]] == undefined){
+              coequipierRepetee[match[0][1]] = {};
+            }
+            coequipierRepetee[match[0][1]][match[0][0]] = 1;
+          }
+          if (coequipierRepetee[match[1][0]] && coequipierRepetee[match[1][0]][match[1][1]]) {
+            coequipierRepetee[match[1][0]][match[1][1]]++;
+            nbCoequipierRepetee++;
+          } else {
+            if (coequipierRepetee[match[1][0]] == undefined){
+              coequipierRepetee[match[1][0]] = {};
+            }
+            coequipierRepetee[match[1][0]][match[1][1]] = 1;
+          }
+          if (coequipierRepetee[match[1][1]] && coequipierRepetee[match[1][1]][match[1][0]]) {
+            coequipierRepetee[match[1][1]][match[1][0]]++;
+            nbCoequipierRepetee++;
+          } else {
+            if (coequipierRepetee[match[1][1]] == undefined){
+              coequipierRepetee[match[1][1]] = {};
+            }
+            coequipierRepetee[match[1][1]][match[1][0]] = 1;
+          }
+        }
+
+        //égalité des sexe
+        const nbHommeEquipe1 = match[0].reduce((acc, joueur) => acc + (isHomme(joueur) ? 1 : 0), 0);
+        const nbHommeEquipe2 = match[1].reduce((acc, joueur) => acc + (isHomme(joueur) ? 1 : 0), 0);
+        if (nbHommeEquipe1 !== nbHommeEquipe2){
+            currentScore += 1 * settings.priorities.sexe;
+            nbEgaliteSexeNonRespecte++;
+        }
+
+        //écart de niveau
+        const [initialScoreTeam1, initialScoreTeam2] = getInitialScore(match[0],match[1]);
+        match["initialScoreTeam1"] = initialScoreTeam1;
+        match["initialScoreTeam2"] = initialScoreTeam2;
+        match["scoreTeam1"] = initialScoreTeam1;
+        match["scoreTeam2"] = initialScoreTeam2;
+        const ecart = Math.abs(initialScoreTeam1 - initialScoreTeam2);
+        if (ecart > ecartMax){
+          currentScore += 1 * settings.priorities.niveau;
+          nbEcartMaxNonRespecte++;
+        }
+
+      }
+
+      //init
+      curMatchPossibleTourSimple = null;
+
+      currentScore += (nbAdversaireSimpleRepetee + nbAdversaireDoubleRepetee) * settings.priorities.adversaire;
+      currentScore += nbCoequipierRepetee * settings.priorities.equipier;
+      
+      currentDistribution.push({ matchs: matchsTour, attente: currentJoueursAttente });
+      currentNbJoueursAttente += currentJoueursAttente.length;
+
     }
-    if (score === 0) break;
+
+    nbDistributionTeste++;
+
+    if (currentScore < scoreDistribution){
+      scoreDistribution = currentScore;
+      currentNbEcartMaxNonRespecte = nbEcartMaxNonRespecte;
+      currentNbEgaliteSexeNonRespecte = nbEgaliteSexeNonRespecte;
+      currentNbAdversaireDoubleRepetee = nbAdversaireDoubleRepetee;
+      currentNbAdversaireSimpleRepetee = nbAdversaireSimpleRepetee;
+      currentNbCoequipierRepetee = nbCoequipierRepetee;
+      meilleureDistribution = { 
+        distribution: currentDistribution, 
+        score: currentScore, 
+        attente: attenteJoueurs 
+      };
+    }
+
+    const container = document.getElementById("label2-progress-bar");
+    container.innerHTML = `
+      <center>
+        <span>Meilleur score : ${scoreDistribution} </span> </br> 
+        <span class="text-sm">Il faut avoir le score le plus petit possible</span> </br> 
+        <div class="w-full">Nombre de distribution testée : ${nbDistributionTeste} </div>
+      </center>
+    `;
+    renderTournament();
+    renderPanelTournament();
+    await new Promise((r) => requestAnimationFrame(r));
+
   }
 
-  if (bestPlanning) {
-    planning = bestPlanning;
+  if (meilleureDistribution == null){
+    alert("Aucune distribution trouvée");
+  }else{
+    planning = transformerDistribution(meilleureDistribution);
     saveData();
-    renderPreparationSection();
     renderTournament();
-    evaluerPlanning();
-    renderStats();
+    renderPanelTournament();
   }
+
   document.body.removeChild(loader);
   stopRequested = false;
-  bestPlanning = null;
+
+}
+
+function getLevel(playerId){
+  const player = players.find(p => p.id === playerId);
+  return player ? levelValue[player.level] : 0;
+}
+
+function isHomme(playerId){
+  const player = players.find(p => p.id === playerId);
+  return player && player.gender === "H";
+}
+
+function getEquipesPossibleSimple(playersIds){
+  const retour = [];
+  for (let i = 0; i < playersIds.length; i++) {
+    retour.push([playersIds[i]]);
+  }
+  //console.log("Equipes simple :", retour);
+  return retour;
+}
+
+function getMatchsPossibleSimple(equipePossibles){
+  const retour = [];
+  let nbIterations = equipePossibles.length;
+  let compt = 1;
+  for (let i = 0; i < nbIterations; i++) {
+    for (let j = compt; j < nbIterations; j++) {
+      retour.push([equipePossibles[i], equipePossibles[j]]);
+    }
+    compt++;
+  }
+  //console.log("Matchs simple :", retour);
+  return retour;
+}
+
+function getEquipesPossibleDouble(playersIds, DHForbidden, DDForbidden, DMForbidden){
+  const retour = [];
+  let nbIterations = playersIds.length;
+  let compt = 1;
+  for (let i = 0; i < nbIterations; i++) {
+    for (let j = compt; j < nbIterations; j++) {
+      const isHommeP1 = isHomme(playersIds[i]);
+      const isHommeP2 = isHomme(playersIds[j]);
+      if ((isHommeP1 && isHommeP2 && DHForbidden) ||
+          (!isHommeP1 && !isHommeP2 && DDForbidden) ||
+          ((isHommeP1 != isHommeP2) && DMForbidden)){
+            continue;
+          }
+      retour.push([playersIds[i], playersIds[j]]);
+    }
+    compt++;
+  }
+  //console.log("Equipes double :", retour);
+  return retour;
+}
+
+function getMatchsPossibleDouble(equipePossibles){
+  const retour = [];
+  let nbIterations = equipePossibles.length;
+  let compt = 1;
+  for (let i = 0; i < nbIterations; i++) {
+    for (let j = compt; j < nbIterations; j++) {
+      //si un joueur est répété dans les deux équipes, on skip  
+      if (equipePossibles[i][0] == equipePossibles[j][0] ||
+          equipePossibles[i][0] == equipePossibles[j][1] ||
+          equipePossibles[i][1] == equipePossibles[j][0] ||
+          equipePossibles[i][1] == equipePossibles[j][1]){
+            continue;
+          } 
+      retour.push([equipePossibles[i], equipePossibles[j]]);
+    }
+    compt++;
+  }
+  //console.log("Match double :", retour);
+  return retour;
+}
+
+function transformerDistribution(obj) {
+
+  return obj["distribution"].map(tour => {
+    const matchsTransformes = tour.matchs.map(match => {
+      //const matchId = `${match[0].map(j => j.id).sort().join('-')}-${match[1].map(j => j.id).sort().join('-')}`;
+      return {
+        team1: match[0].map(j =>  players.find(p => p.id === j)),
+        team2: match[1].map(j =>  players.find(p => p.id === j)),
+        scoreTeam1: match.scoreTeam1,
+        scoreTeam2: match.scoreTeam2,
+        initialScoreTeam1: match.initialScoreTeam1,
+        initialScoreTeam2: match.initialScoreTeam2
+      };
+    });
+    const attentes = tour.attente.map(id => players.find(p => p.id === id));
+    return {
+      attentes: attentes,
+      matchs: matchsTransformes,
+    };
+  });
 }
 
 function stopRequest() {
@@ -2134,6 +2145,7 @@ function addProgressBar() {
   const label2 = document.createElement("div");
   label2.style.marginTop = "1em";
   label2.id = "label2-progress-bar";
+  label2.classList.add("w-full")
   label2.innerHTML = ``;
   loader.appendChild(loaderCirc);
   //loader.appendChild(progress);
@@ -2141,106 +2153,6 @@ function addProgressBar() {
   loader.appendChild(label);
   loader.appendChild(label2);
   document.body.append(loader);
-}
-
-/*function generateShuffledOrders(maxTries) {
-  const seen = new Set();
-  const results = [];
-  const totalOrders = factorial(players.length);
-
-  while (results.length < maxTries && results.length < totalOrders) {
-    const shuffled = [...players].sort(() => Math.random() - 0.5);
-    const key = shuffled.map((p) => p.id).join("-");
-    if (!seen.has(key)) {
-      seen.add(key);
-      results.push(shuffled);
-    }
-  }
-
-  return results;
-}*/
-
-function factorial(n) {
-  return n <= 1 ? 1 : n * factorial(n - 1);
-}
-function getNthPermutation(arr, n) {
-  const result = [];
-  const items = [...arr];
-  let k = n;
-
-  for (let i = arr.length; i > 0; i--) {
-    const f = factorial(i - 1);
-    const index = Math.floor(k / f);
-    result.push(items[index]);
-    items.splice(index, 1);
-    k = k % f;
-  }
-
-  return result;
-}
-
-function generateConstraintCombinations(ranges) {
-  const keys = Object.keys(ranges);
-  const result = [];
-
-  function backtrack(index, current) {
-    if (index === keys.length) {
-      result.push({ ...current });
-      return;
-    }
-
-    const key = keys[index];
-    for (const value of ranges[key]) {
-      current[key] = value;
-      backtrack(index + 1, current);
-    }
-  }
-
-  backtrack(0, {});
-  return result;
-}
-
-//let lastUpdateTime = 0;
-
-async function updateProgressBar(
-  combinaisonsTeste,
-  permutationInitiale,
-  contraintesPossible,
-  i
-) {
-  const now = Date.now();
-  //if (now - lastUpdateTime < 5000) return;
-  //lastUpdateTime = now;
-
-  const container = document.getElementById("label-progress-bar");
-  //container.classList.remove("visible");
-
-  //await new Promise((resolve) => setTimeout(resolve, 500)); // fondu sortant
-  await new Promise((r) => requestAnimationFrame(r));
-  //await new Promise(requestAnimationFrame); // libère le thread UI
-
-  container.innerHTML = `
-    <center>
-      <span>${Math.round((i / contraintesPossible.length) * 100)} %</span> </br>
-      <span>Combinaisons testées : ${combinaisonsTeste}
-    </span></center>
-  `;
-
-  /*container.innerHTML = `
-    <center><span style="text-align: center; width: 100px;">
-      Combinaisons testées : ${combinaisonsTeste} </br>
-      seulement ${
-        (combinaisonsTeste / permutationInitiale) *
-        contraintesPossible.length *
-        100
-      } % </br> 
-      sur  </br>${simplifierNombre(
-        permutationInitiale * contraintesPossible.length
-      )}
-    </span></center>
-  `;*/
-
-  //container.classList.add("visible");
 }
 
 function simplifierNombre(nombre) {
@@ -2346,25 +2258,4 @@ function simplifierNombre(nombre) {
     }
   }
   return nombre.toLocaleString();
-}
-
-function checkRepetitionCoherence(nJoueurs, nTours) {
-  const maxCoequipiersUnics = nJoueurs - 1;
-  if (nTours > maxCoequipiersUnics) {
-    return `⚠️ Impossible sans répétition : ${nTours} > ${maxCoequipiersUnics}`;
-  } else {
-    return `✅ Possible sans répétition (en théorie)`;
-  }
-}
-
-function exportResultsToPDF() {
-  const element = document.getElementById("listResult"); // div contenant les résultats
-  const opt = {
-    margin: 0.5,
-    filename: "resultats-tournoi.pdf",
-    image: { type: "jpeg", quality: 0.98 },
-    html2canvas: { scale: 2 },
-    jsPDF: { unit: "in", format: "a4", orientation: "portrait" },
-  };
-  html2pdf().set(opt).from(element).save();
 }
