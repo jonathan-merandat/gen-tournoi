@@ -125,8 +125,7 @@ mark{
 
 .accordion {
     cursor: pointer;
-    margin: 0.2em 0;
-    padding: 0.2em;
+     padding: 0.2em;
     background: #eee;
     border: none;
     text-align: left;
@@ -171,7 +170,6 @@ mark{
     top: 0px;
     z-index:2;
     height: 50px;
-    box-shadow: 0px 8px 11px 0px gray;
 }
 
 
@@ -419,7 +417,7 @@ mark{
     }
 }
 
-.genderFilterActif{
+.genderFilterActif, .typeTournoiFilterActif{
     background-color: var(--bg2-color);
     color: var(--text2-color);
 }

@@ -1,7 +1,8 @@
 // Ce fichier JavaScript contient l'ensemble de l'interface pour gérer
 // un tournoi de badminton en double avec des contraintes complexes
 // et une interface utilisateur complète responsive et interactive.
-const version = 0.3;
+const version = 0.1;
+const clefDataLocalStorage = "gen-tournoi-" + version;
 
 // Empêcher le zoom au double-tap sur mobile (sans bloquer les taps rapides)
 document.addEventListener('touchstart', function(event) {
@@ -147,7 +148,7 @@ const defaultConfig = {
   activeTargetTimeTour: false,
 };
 
-let tournoi = JSON.parse(localStorage.getItem("gen-tournoi") || "{}");
+let tournoi = JSON.parse(localStorage.getItem(clefDataLocalStorage) || "{}");
 let players = tournoi.players || [];
 let settings = tournoi.settings || defaultConfig;
 let scores = tournoi.scores || {};
@@ -283,7 +284,7 @@ function reset() {
 
 function saveData() {
   localStorage.setItem(
-    "gen-tournoi",
+    clefDataLocalStorage,
     JSON.stringify({
       players,
       settings,
@@ -327,17 +328,12 @@ function renderPreparationSection() {
     <div class="flex flex-wrap gap-4 m-5">
       <div class="flex flex-col flex-auto">
         <label for="type-tournoi-value" class="mb-2">Type de tournoi</label> 
-          <select id="type-tournoi-select" onchange="settings.typeTournoi = this.value == 'double' ? 'double' : 'simple';saveData(); renderPreparationSection();" class="w-full">
-            <option value="double" ${settings.typeTournoi === "double" ? "selected" : ""}>Double</option>
-            <option value="simple" ${settings.typeTournoi === "simple" ? "selected" : ""}>Simple</option>
-          </select>
-        ${settings.typeTournoi == "double" ? `
-        <label class="flex items-center gap-4 p-4">
-          <input type="checkbox" onchange="onChangeAllowSimpleIfTournoiDouble(event);" ${
-            settings.allowSimpleIfTypeTournoiDouble ? "checked" : ""
-          } />
-          <span class="">Autoriser les matchs simples</span>
-        </label>` : ""}
+
+        <div class="flex gap-0 w-full">
+          <button class="flex-auto px-4 py-2 ${settings.typeTournoi === "double" ? 'typeTournoiFilterActif' : 'bg-gray-300 text-black'} rounded-l-md" onclick="settings.typeTournoi='double';renderPreparationSection();">Double</button>
+          <button class="flex-auto px-4 py-2 ${settings.typeTournoi === "simple" ? 'typeTournoiFilterActif' : 'bg-gray-300 text-black'} border-l border-r border-gray-400 rounded-r-md" onclick="settings.typeTournoi='simple';renderPreparationSection();">Simple</button>
+        </div>
+       
       </div>
       
       <div class="flex flex-col flex-auto min-w-64">
@@ -355,24 +351,9 @@ function renderPreparationSection() {
               <span id="tours-value" class="w-8 ml-2">${settings.tours} </span>
             </div>
         </div>
-      </div>
-
-      <div class="flex flex-col gap-4 flex-auto">
-      <label class="flex items-center gap-4">
-        <input type="checkbox" onchange="onChangeActiveTargetTimeTour(event);" ${
-          settings.activeTargetTimeTour ? "checked" : ""
-        } />
-        <span class="">Définir un temps limite par tour</span>
-      </label>
-      ${settings.activeTargetTimeTour ? `
-        <div class="flex items-center justify-between">
-            <div class="slider slider-param-target-time-tour flex-auto mr-6"> </div>
-            <span id="target-time-tour-value" class="w-8 ml-2">${settings.targetTimeTour} </span>
-          </div>` : ""}
-      </div>
+      </div>      
       
-      
-      ${renderContraintes("preparation", false)}
+      ${renderOptionsAvancees("preparation", false)}
 
     </div>
 
@@ -602,7 +583,61 @@ function renderPreparationSection() {
     });
   });
 
-  renderHandicapTournament();
+  document.body.querySelectorAll(".slider-level").forEach((slider) => {
+    const obj = slider.id.split("-");
+    noUiSlider.create(slider, {
+      start: levelValue[obj[2]],
+      connect: [true, false],
+      step: 1,
+      range: {
+        min: 0,
+        max: 12,
+      },
+    });
+    slider.noUiSlider.on("slide", (values, handle) => {
+      levelValue[obj[2]] = parseInt(values[handle]);
+      document.getElementById(`slider-level-label-${obj[2]}`).innerHTML =
+        parseInt(values[handle]);
+    });
+    slider.noUiSlider.on("end", (values, handle) => {
+      planning.forEach((tour) => {
+        tour.matchs.forEach((match) => {
+          const [initialScoreTeam1, initialScoreTeam2] = getInitialScore(
+            match.team1,
+            match.team2
+          );
+          match.initialScoreTeam1 = initialScoreTeam1;
+          match.initialScoreTeam2 = initialScoreTeam2;
+        });
+      });
+      saveData();
+      renderStats();
+      renderTournament();
+    });
+  });
+
+  const sliderEcartMax = document.body.querySelector(".slider-ecart-max");
+  if (sliderEcartMax) {
+    noUiSlider.create(sliderEcartMax, {
+      start: parseInt(settings.ecartMax),
+      connect: [true, false],
+      step: 1,
+      range: {
+        min: 0,
+        max: 30,
+      },
+    });
+    sliderEcartMax.noUiSlider.on("slide", (values, handle) => {
+      settings.ecartMax = parseInt(values[handle]);
+      document.getElementById("slider-ecart-max").innerHTML = parseInt(
+        values[handle]
+      );
+    });
+    sliderEcartMax.noUiSlider.on("end", (values, handle) => {
+      saveData();
+      renderStats();
+    });
+  }
 
 }
 
@@ -695,7 +730,7 @@ function renderTournament() {
                       ? " En cours"
                       : tour.closed
                       ? " Terminé"
-                      : " À venir"      
+                      : currentTour != -1 ? " À venir" : ""
                     }
                   </span>
                 </h3> 
@@ -1718,8 +1753,9 @@ function launchTournoi() {
   currentEditMatchIndex = -1;
   document
     .getElementById("tour-" + (currentTour + 1))
+    .nextElementSibling
     .querySelector(".match")
-    .scrollIntoView({ behavior: "smooth", block: "start", offset: -100 });
+    .scrollIntoView({ behavior: "smooth", block: "start", offset: 50 });
   planning[currentTour].startDate = Date.now();
   renderTournament();
   currentStopTimer = afficherTempsEcoule(
@@ -1762,14 +1798,26 @@ function clotureTour() {
   saveData();
 }
 
-function renderContraintes() {
-  const retour = `<button class="accordion p-2 flex justify-between items-center" onclick="this.classList.toggle('open')">
+function renderOptionsAvancees() {
+  const retour = `<button class="accordion p-2 bg-gray-200 rounded flex justify-between items-center" onclick="this.classList.toggle('open')">
         <span>⚙️ Options avancées</span>
         <span>▼</span>
         </button> 
-  <div class="accordion-content flex-wrap gap-4 w-full"> 
-      <div class="flex flex-col flex-auto">
-          <h3 class="sous-header sous-sous-header flex justify-between mb-5">Contraintes</h3>
+  <div class="accordion-content flex-wrap gap-2 w-full p-2 bg-gray-400"> 
+          <div class="flex flex-col gap-4 flex-auto bg-gray-200 p-2 rounded-md">
+            <label class="flex items-center gap-4">
+              <input type="checkbox" onchange="onChangeActiveTargetTimeTour(event);" ${
+                settings.activeTargetTimeTour ? "checked" : ""
+              } />
+              <span class="">Définir un temps limite par tour (min)</span>
+            </label>
+            <div class="flex items-center justify-between">
+              <div class="slider slider-param-target-time-tour flex-auto mr-6"> </div>
+              <span id="target-time-tour-value" class="w-8 ml-2">${settings.targetTimeTour} </span>
+            </div>
+          </div>
+
+          <div class="flex flex-col flex-auto bg-gray-200 p-2 rounded-md">
           ${Object.entries(settings.priorities)
             .map(
               ([priority, poids]) =>
@@ -1783,39 +1831,72 @@ function renderContraintes() {
                   </label>`
             )
             .join("")}
+          </div>
+
+          <div class="flex flex-col flex-auto bg-gray-200 p-2 rounded-md">
 
             ${settings.typeTournoi == "double" ? `
-          <div class="flex flex-col flex-auto gap-1">
-            <label class="flex gap-4">
-              <input type="checkbox" onchange="onChangeAllowDDForbidden(event);" ${
-                settings.DDForbidden ? "checked" : ""
-              } />
-              <span class="">Interdire les doubles dame</span>
-            </label>
-            <label class="flex gap-4">
-              <input type="checkbox" onchange="onChangeAllowDHForbidden(event);" ${
-                settings.DHForbidden ? "checked" : ""
-              } />
-              <span class="">Interdire les doubles homme</span>
-            </label>
-            <label class="flex gap-4">
-              <input type="checkbox" onchange="onChangeAllowDMForbidden(event);" ${
-                settings.DMForbidden ? "checked" : ""
-              } />
-              <span class="">Interdire les doubles mixtes</span>
-            </label>
+            <div class="flex flex-col flex-auto gap-1 pl-4">
+              <label class="flex gap-4 ">
+                <input type="checkbox" onchange="onChangeAllowDDForbidden(event);" ${
+                  settings.DDForbidden ? "checked" : ""
+                } />
+                <span class="">Interdire les doubles dame</span>
+              </label>
+              <label class="flex gap-4">
+                <input type="checkbox" onchange="onChangeAllowDHForbidden(event);" ${
+                  settings.DHForbidden ? "checked" : ""
+                } />
+                <span class="">Interdire les doubles homme</span>
+              </label>
+              <label class="flex gap-4">
+                <input type="checkbox" onchange="onChangeAllowDMForbidden(event);" ${
+                  settings.DMForbidden ? "checked" : ""
+                } />
+                <span class="">Interdire les doubles mixtes</span>
+              </label>
+            </div>
+              ` : ""}
+              ${settings.typeTournoi == "double" ? `
+              <label class="flex items-center gap-4 p-4">
+                <input type="checkbox" onchange="onChangeAllowSimpleIfTournoiDouble(event);" ${
+                  settings.allowSimpleIfTypeTournoiDouble ? "checked" : ""
+                } />
+                <span class="">Autoriser les matchs simples</span>
+              </label>` : ""}
           </div>
-            ` : ""}
-      </div>
 
-    <div class="flex flex-col flex-auto">
-        <h3 class="sous-header sous-sous-header flex justify-between mb-5">Scores initiaux</h3>
-        <div id="score-panel" class="flex flex-col"></div>
+      <div class="flex flex-col flex-auto bg-gray-200 p-2 rounded-md">
+        <label class="flex w-full gap-4 p-4">
+          <input type="checkbox" onchange="onChangeScoreNegatif(event);" ${
+            settings.isScoreNegatif ? "checked" : ""
+          } />
+          <span class="">Score négatif</span>
+        </label>
+
+        <label class="flex flex flex-col w-full gap-1">
+          <span class="">Ecart de point max</span>
+          <div class="flex">
+            <div class="slider-ecart-max flex-auto mx-6 my-2"> </div>
+            <span id="slider-ecart-max" class="">${settings.ecartMax}</span>
+          </div>
+        </label>
     </div>
 
-    <div class="flex flex-col flex-auto">
-        <h3 class="sous-header sous-sous-header flex justify-between mb-5"> Handicaps et avantages</h3>
-        <div id="handicap-tournament-panel" class="flex flex-col"></div>
+    <div class="flex flex-col flex-auto bg-gray-200 p-2 rounded-md min-w-64">
+      <div class="pl-4">
+      ${Object.entries(levelValue)
+        .map(
+          ([key, level]) =>
+            `<label class="flex justify-between items-center">
+              <span class="w-6">${key}</span>
+              <div id="slider-level-${key}" class="slider-level flex-auto mx-6 my-2"> </div>
+              <span id="slider-level-label-${key}" class="w-8">${level}</span>
+            </label>
+          `
+        )
+        .join("")}
+      </div>
     </div>
 
   </div>`;
@@ -1830,7 +1911,7 @@ function renderPanelTournament() {
   <button onclick="togglePanel(true);">✖</button>
   </h3>
   ${"" /*<div id="contrainte-panel">*/}
-  ${"" /*renderContraintes("panel", true)*/}
+  ${"" /*renderOptionsAvancees("panel", true)*/}
   <div class="flex flex-col gap-4 my-4">
   <div class="ml-4">Score de distribution : ${scoreDistribution == 0 ? "0 (Parfait)" : scoreDistribution}</div>
   <div class="ml-4">Nombre de distribution testées : ${nbDistributionTeste}</div>
@@ -1959,61 +2040,6 @@ const scoreTournament = document.getElementById(
     </div>
   `;
 
-  document.body.querySelectorAll(".slider-level").forEach((slider) => {
-    const obj = slider.id.split("-");
-    noUiSlider.create(slider, {
-      start: levelValue[obj[2]],
-      connect: [true, false],
-      step: 1,
-      range: {
-        min: 0,
-        max: 12,
-      },
-    });
-    slider.noUiSlider.on("slide", (values, handle) => {
-      levelValue[obj[2]] = parseInt(values[handle]);
-      document.getElementById(`slider-level-label-${obj[2]}`).innerHTML =
-        parseInt(values[handle]);
-    });
-    slider.noUiSlider.on("end", (values, handle) => {
-      planning.forEach((tour) => {
-        tour.matchs.forEach((match) => {
-          const [initialScoreTeam1, initialScoreTeam2] = getInitialScore(
-            match.team1,
-            match.team2
-          );
-          match.initialScoreTeam1 = initialScoreTeam1;
-          match.initialScoreTeam2 = initialScoreTeam2;
-        });
-      });
-      saveData();
-      renderStats();
-      renderTournament();
-    });
-  });
-
-  const sliderEcartMax = document.body.querySelector(".slider-ecart-max");
-  if (sliderEcartMax) {
-    noUiSlider.create(sliderEcartMax, {
-      start: parseInt(settings.ecartMax),
-      connect: [true, false],
-      step: 1,
-      range: {
-        min: 0,
-        max: 30,
-      },
-    });
-    sliderEcartMax.noUiSlider.on("slide", (values, handle) => {
-      settings.ecartMax = parseInt(values[handle]);
-      document.getElementById("slider-ecart-max").innerHTML = parseInt(
-        values[handle]
-      );
-    });
-    sliderEcartMax.noUiSlider.on("end", (values, handle) => {
-      saveData();
-      renderStats();
-    });
-  }
 }
 
 function onChangeScoreNegatif(event) {
@@ -2028,7 +2054,6 @@ function onChangeAllowSimpleIfTournoiDouble(event) {
 function onChangeActiveTargetTimeTour(event) {
   settings.activeTargetTimeTour = event.currentTarget.checked;
   saveData();
-  renderPreparationSection();
 }
 function onChangeAllowDDForbidden(event) {
   settings.DDForbidden = event.currentTarget.checked;
