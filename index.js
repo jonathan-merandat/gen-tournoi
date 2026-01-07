@@ -1755,7 +1755,7 @@ function launchTournoi() {
     .getElementById("tour-" + (currentTour + 1))
     .nextElementSibling
     .querySelector(".match")
-    .scrollIntoView({ behavior: "smooth", block: "start", offset: 50 });
+    .scrollIntoView({ behavior: "smooth", block: "start", offset: 200 });
   planning[currentTour].startDate = Date.now();
   renderTournament();
   currentStopTimer = afficherTempsEcoule(

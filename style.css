@@ -459,3 +459,7 @@ mark{
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
     background-color: #f0f9ff !important;
 }
+
+.match {
+  scroll-margin-top: 200px; /* décalage de 200px vers le bas */
+}
