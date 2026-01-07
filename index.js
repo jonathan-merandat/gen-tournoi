@@ -3,21 +3,79 @@
 // et une interface utilisateur complète responsive et interactive.
 const version = 0.3;
 
-// Empêcher le zoom au double-tap sur mobile
+// Empêcher le zoom au double-tap sur mobile (sans bloquer les taps rapides)
 document.addEventListener('touchstart', function(event) {
   if (event.touches.length > 1) {
     event.preventDefault();
   }
 }, { passive: false });
 
-let lastTouchEnd = 0;
-document.addEventListener('touchend', function(event) {
-  const now = Date.now();
-  if (now - lastTouchEnd <= 300) {
+//clickOnBody
+document.addEventListener('click', function(event) {
+  const matchEnCours = event.target.closest(".matchEnCours");
+  const accordion = event.target.closest(".accordion");
+  if (accordion == null && matchEnCours == null && currentTour != -1 && currentTour != null) {
+    if (currentEditMatchIndex != -1){
+      saveScoresFromInputs();
+    }
+    currentEditMatchIndex=-1;
+    // Clean up keyboard listener
+    document.removeEventListener('keydown', handleScoreKeydown);
+    renderTournament();
     event.preventDefault();
   }
-  lastTouchEnd = now;
 }, { passive: false });
+
+// Global keyboard handler for match navigation (Tab/Shift+Tab/Enter when not editing)
+document.addEventListener('keydown', function(event) {
+  if (currentTour === null || currentTour === -1) return;
+  if (currentEditMatchIndex !== -1) return; // Don't handle if editing
+  
+  if (event.key === 'Tab') {
+    event.preventDefault();
+    if (event.shiftKey) {
+      navigateToPreviousMatchGlobal();
+    } else {
+      navigateToNextMatchGlobal();
+    }
+  } else if (event.key === 'Enter') {
+    event.preventDefault();
+    // Enter edit mode on focused match
+    if (focusedMatchIndex !== -1) {
+      currentEditMatchIndex = focusedMatchIndex;
+      scoreInputState.team1Score = null;
+      scoreInputState.team2Score = null;
+      scoreInputState.currentTeam = 1;
+      focusedTeamInEdit = 1;
+      renderTournament();
+    }
+  }
+});
+
+function navigateToNextMatchGlobal() {
+  const totalMatches = planning[currentTour].matchs.length;
+  let nextIndex = focusedMatchIndex + 1;
+  
+  if (nextIndex >= totalMatches) {
+    nextIndex = 0;
+  }
+  
+  focusedMatchIndex = nextIndex;
+  renderTournament();
+}
+
+function navigateToPreviousMatchGlobal() {
+  const totalMatches = planning[currentTour].matchs.length;
+  let prevIndex = focusedMatchIndex - 1;
+  
+  if (prevIndex < 0) {
+    prevIndex = totalMatches - 1;
+  }
+  
+  focusedMatchIndex = prevIndex;
+  renderTournament();
+}
+
 // -- SETUP GLOBAL DATA --
 const levels = [
   "NC",
@@ -104,6 +162,8 @@ let currentNbEcartMaxNonRespecte = tournoi.currentNbEcartMaxNonRespecte || 0;
 let currentNbJoueursAttente = tournoi.currentNbJoueursAttente || 0;
 let currentTour = tournoi.currentTour === undefined ? -1 : tournoi.currentTour;
 let currentEditMatchIndex = -1;
+let focusedMatchIndex = -1; // Match with keyboard focus (highlighted border)
+let focusedTeamInEdit = 1; // Which team (1 or 2) we're editing when in edit mode
 let currentStopTimer = null;
 
 let stopRequested = false;
@@ -116,6 +176,20 @@ let intervals = {
   topRight: null,
   bottomRight: null,
 };
+
+// Détection simple d'un appareil mobile / tactile
+function isMobileDevice() {
+  try {
+    if (typeof navigator === 'undefined') return false;
+    return (
+      ('ontouchstart' in window) ||
+      (navigator.maxTouchPoints && navigator.maxTouchPoints > 0) ||
+      (window.matchMedia && window.matchMedia('(hover: none) and (pointer: coarse)').matches)
+    );
+  } catch (e) {
+    return false;
+  }
+}
 
 // -- DOM CREATION --
 window.addEventListener("DOMContentLoaded", () => {
@@ -166,6 +240,11 @@ function showSection(id) {
     .querySelectorAll("section")
     .forEach((sec) => (sec.style.display = "none"));
   document.getElementById(id).style.display = "block";
+  document.scrollTop = 0;
+}
+
+function resetSection(id) {
+  document.getElementById(id).innerHTML = "";
 }
 
 function togglePanel(forceHide = null) {
@@ -196,8 +275,9 @@ function reset() {
     genderFilter = "tous";
     saveData();
     renderPreparationSection();
-    renderTournament();
-    renderPanelTournament();
+    showSection("preparation");
+    resetSection("tournament");
+    resetSection("results");
   }
 }
 
@@ -227,7 +307,12 @@ function regenerate() {
   if (
     confirm("Un tournoi existe déjà, il va être perdu, voulez vous-continuer ?")
   ) {
+    if (currentStopTimer) {
+      currentStopTimer();
+    }
     currentTour = -1;
+    resultsRevealed = false;
+    genderFilter = "tous";
     optimisePlanning();
   }
 }
@@ -596,26 +681,25 @@ function renderTournament() {
             currentTour == indexTour && "bg-green-100"
           }" onclick="this.classList.toggle('open')">
                 <h3 class="flex justify-between items-center w-full">
-                <span> Tour ${indexTour + 1}</span>
-                ${
-                  tour.closed ? 
-                  `<span> Durée : ${getTpsTour(indexTour)}</span>` 
-                  : ``
-                }
-                <span>
-                 ${
-                  currentTour == indexTour
-                    ? " En cours"
-                    : tour.closed
-                    ? " Terminé"
-                    : " À venir"      
+                  <span> Tour ${indexTour + 1}</span>
+                  ${
+                    tour.closed ? 
+                    `<span> Durée : ${getTpsTour(indexTour)}</span>` 
+                    : currentTour == indexTour ?
+                      ``
+                    :``
                   }
-                </span>
-          </h3>
-
-
+                  <span class="mr-2">
+                  ${
+                    currentTour == indexTour
+                      ? " En cours"
+                      : tour.closed
+                      ? " Terminé"
+                      : " À venir"      
+                    }
+                  </span>
+                </h3> 
                 <span>▼</span>
-         
               </button>
               <div class="accordion-content w-full"> 
                 <div class="flex justify-center flex-wrap gap-4 w-full">
@@ -626,7 +710,7 @@ function renderTournament() {
                         const team1IsWinner = isWinner(indexTour, index, true);
                         const team2IsWinner = isWinner(indexTour, index, false);
                         return `
-                          <div class="flex flex-col mx-2 max-w-96 w-full">
+                          <div class="match flex flex-col mx-2 max-w-96 w-full">
                             <div class="flex justify-between items-center w-full p-2 ">
                               <h3>Match ${indexMatch}</h3>
                               <h3>Terrain ${index + 1}</h3>
@@ -635,47 +719,43 @@ function renderTournament() {
                             ${
                               currentTour == indexTour
                                 ? ` 
-                                <div class="relative flex flex-col items-center border p-2 rounded">
+                                <div class="matchEnCours relative flex flex-col items-center border p-2 rounded hover:bg-gray-100 pointer-mouse ${focusedMatchIndex === index ? 'matchFocused' : ''}" data-match-index="${index}" onclick="currentEditMatchIndex=${index};focusedMatchIndex=${index};focusedTeamInEdit=1;renderTournament();">
                                 
                                   <span class="flex justify-center items-center text-2xl gap-4 w-full">
                                     ${
                                       currentEditMatchIndex != -1 &&
                                       currentEditMatchIndex == index
-                                        ? `<button onclick="teamWin(true);" class="${
+                                        ? ""/*`<button onclick="teamWin(true);" class="${
                                             team1IsWinner ? "" : "opacity-50"
-                                          }">🏆</button>`
+                                          }">🏆</button>`*/
                                         : team1IsWinner
                                         ? `<button class="absolute top-0 left-5">🏆</button>`
                                         : ``
                                     }
-                                    <span class="w-8 text-right" ${
-                                      currentEditMatchIndex == index
-                                        ? 'id="currentScoreIndex1"'
-                                        : ""
-                                    }>${match.scoreTeam1}</span>
                                     ${
                                       currentEditMatchIndex == index
-                                        ? `<button class="text-xl" onclick="currentEditMatchIndex=-1;renderTournament();"> ✔️ </button>`
-                                        : `<button class="text-xl" onclick="currentEditMatchIndex=${index};renderTournament();"> ✏️ </button>`
+                                        ? `<input type="number" id="currentScoreIndex1" class="score-input" min="0" max="32" maxlength="3" value="${match.scoreTeam1}" ${isMobileDevice() ? 'inputmode="numeric"' : ''} readonly onclick="(evt) => { evt.preventDefault();focusedTeamInEdit=1;setupScoreKeyboardCapture();}">`
+                                        : `<span class="w-8 text-right">${match.scoreTeam1}</span>`
                                     }
-                                    <span class="w-8 text-left" ${
+                                    <span>-</span>
+                                    ${
                                       currentEditMatchIndex == index
-                                        ? 'id="currentScoreIndex2"'
-                                        : ""
-                                    }>${match.scoreTeam2}</span>
+                                        ? `<input type="number" id="currentScoreIndex2" class="score-input" min="0" max="32" maxlength="3" value="${match.scoreTeam2}" ${isMobileDevice() ? 'inputmode="numeric"' : ''} readonly onclick="(evt) => { evt.preventDefault();focusedTeamInEdit=2;setupScoreKeyboardCapture();}">`
+                                        : `<span class="w-8 text-left">${match.scoreTeam2}</span>`
+                                    }
                                     ${
                                       currentEditMatchIndex != -1 &&
                                       currentEditMatchIndex == index
-                                        ? `<button onclick="teamWin(false);" class="${
+                                        ? ""/*`<button onclick="teamWin(false);" class="${
                                             team2IsWinner ? "" : "opacity-50"
-                                          }">🏆</button>`
+                                          }">🏆</button>`*/
                                         : team2IsWinner
                                         ? `<button class="absolute top-0 right-5">🏆</button>`
                                         : ``
                                     }
                                   </span>
                                   <div class="flex justify-between items-center h-full w-full">
-                                      <div class="flex flex-col flex-1 overflow-hidden">
+                                      <div class="flex flex-col flex-1 overflow-hidden ${team1IsWinner ? 'font-bold' : ''}">
                                         ${renderTeam(
                                           match.team1,
                                           "",
@@ -694,6 +774,8 @@ function renderTournament() {
                                                     )}
                                                   </div>
                                             </div>
+                                            
+                                            ${ isMobileDevice() ? `
                                             <div id="plus-top-left" class="absolute flex justify-center items-center left-0 top-0 w-16 h-16 bg-yellow-100 rounded opacity-50 cursor-pointer" onmousedown="startTouchScore(true, '${
                                               indexTour +
                                               "-" +
@@ -727,9 +809,10 @@ function renderTournament() {
                                               }', intervals, 'bottomLeft');}" 
                                             ontouchend="stopTouchScore(intervals, 'bottomLeft');">
                                                 -
-                                            </div>
+                                            </div>`
+                                            : ""}
                                           `
-                                          : ``
+                                            : ``
                                       }
                                     
                                     <div class="separator-vertical ${
@@ -748,6 +831,8 @@ function renderTournament() {
                                               )}
                                             </div>
                                         </div>
+
+                                        ${ isMobileDevice() ? `
                                         <div id="plus-top-left" class="absolute flex justify-center items-center right-0 top-0 w-16 h-16 bg-yellow-100 rounded opacity-50 cursor-pointer" onmousedown="startTouchScore(true, '${
                                           indexTour + "-" + index + "-scoreTeam2"
                                         }', intervals, 'topRight');"
@@ -778,12 +863,13 @@ function renderTournament() {
                                             }', intervals, 'bottomRight');}" 
                                             ontouchend="stopTouchScore(intervals, 'bottomRight');">
                                                 -
-                                            </div>
+                                            </div>`
+                                            :""}
                                         `
                                         : ``
                                     }
 
-                                    <div class="flex flex-col flex-1 overflow-hidden items-end">
+                                    <div class="flex flex-col flex-1 overflow-hidden items-end ${team2IsWinner ? 'font-bold' : ''}">
                                       ${renderTeam(
                                         match.team2,
                                         "text-right",
@@ -815,7 +901,7 @@ function renderTournament() {
                                       }</span>
                                     </span>
                                     <div class="flex justify-between items-center w-full">
-                                      <div class="flex flex-col flex-1 overflow-hidden ">
+                                      <div class="flex flex-col flex-1 overflow-hidden ${team1IsWinner ? 'font-bold' : ''}">
                                           ${renderTeam(
                                             match.team1,
                                             "",
@@ -825,7 +911,7 @@ function renderTournament() {
                                       <div class="separator-vertical ${
                                         currentTour === indexTour ? "mx-2" : ""
                                       }"></div>
-                                      <div class="flex flex-col flex-1 overflow-hidden items-end">
+                                      <div class="flex flex-col flex-1 overflow-hidden items-end ${team2IsWinner ? 'font-bold' : ''}">
                                           ${renderTeam(
                                             match.team2,
                                             "text-right",
@@ -914,6 +1000,7 @@ function renderTournament() {
     });
     slider.noUiSlider.on("slide", (values, handle) => {
       changeLevelScore(parseInt(values[handle]), slider.id);
+      document.getElementById(obj[2] == "scoreTeam1" ? "currentScoreIndex1" : "currentScoreIndex2").value = parseInt(values[handle]);
     });
     slider.noUiSlider.on("end", (values, handle) => {
       saveData();
@@ -924,6 +1011,269 @@ function renderTournament() {
       renderTournament();
     });
   });
+
+  // Bind click/focus handlers to score inputs so click changes focused team
+  bindScoreInputHandlers();
+
+
+function bindScoreInputHandlers() {
+  document.querySelectorAll('.score-input').forEach((inp) => {
+  const onFocus = (e) => {
+  try { e.stopPropagation(); } catch (err) {}
+  const id = e.currentTarget.id;
+  if (id === 'currentScoreIndex1') {
+  focusedTeamInEdit = 1;
+  scoreInputState.currentTeam = 1;
+  } else if (id === 'currentScoreIndex2') {
+  focusedTeamInEdit = 2;
+  scoreInputState.currentTeam = 2;
+  }
+  setupScoreKeyboardCapture();
+  };
+
+  inp.addEventListener('focus', onFocus, true);
+  inp.addEventListener('click', onFocus, true);
+  inp.addEventListener('touchstart', onFocus, { passive: true, capture: true });
+  });
+}
+  // Setup keyboard capture for score input
+  setupScoreKeyboardCapture();
+}
+
+// Global state for keyboard score entry
+let scoreInputState = {
+  team1Score: null,
+  team2Score: null,
+  currentTeam: 1, // 1 or 2
+};
+
+function setupScoreKeyboardCapture() {
+  // Remove previous listener if exists
+  document.removeEventListener('keydown', handleScoreKeydown);
+  
+  // Only setup if we're editing a match
+  if (currentEditMatchIndex !== -1 && currentTour !== null && currentTour !== -1) {
+    document.addEventListener('keydown', handleScoreKeydown);
+    
+    // Reset state
+    scoreInputState.team1Score = null;
+    scoreInputState.team2Score = null;
+    // start on the team that was focused (click or navigation)
+    scoreInputState.currentTeam = focusedTeamInEdit || 1;
+    
+    // Auto-focus first input
+    setTimeout(() => {
+      const id = scoreInputState.currentTeam === 1 ? 'currentScoreIndex1' : 'currentScoreIndex2';
+      const input = document.getElementById(id);
+      if (input) input.focus();
+    }, 0);
+  }
+}
+
+function handleScoreKeydown(e) {
+  // Handle Tab / Shift+Tab - switch between teams or navigate matches
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    if (e.shiftKey) {
+      // global previous match navigation when appropriate
+      navigateToPreviousMatch();
+      return;
+    }
+
+    if (scoreInputState.currentTeam === 1) {
+      // Tab from team1 -> team2
+      scoreInputState.currentTeam = 2;
+      focusedTeamInEdit = 2;
+      setTimeout(() => {
+        const input2 = document.getElementById('currentScoreIndex2');
+        if (input2) input2.focus();
+      }, 0);
+    } else {
+      // Tab from team2 -> next match
+      navigateToNextMatch();
+    }
+    return;
+  }
+  
+  // Handle Enter - validate match and move to next
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    saveScoresFromInputs();
+    navigateToNextMatch();
+    return;
+  }
+
+  // Handle Enter - validate match and move to next
+  if (e.key === 'Backspace') {
+    e.preventDefault();
+    if (scoreInputState.currentTeam === 1) {
+      // Team 1 input
+      const input1 = document.getElementById('currentScoreIndex1');
+      let s = String(input1.value);
+      s = s.slice(0, -1);
+      scoreInputState.team1Score = parseInt(s);
+      if (input1) input1.value = scoreInputState.team1Score;
+    } else {
+      // Team 2 input
+      const input2 = document.getElementById('currentScoreIndex2');
+      let s = String(input2.value);
+      s = s.slice(0, -1);
+      scoreInputState.team2Score = parseInt(s);
+      if (input2) input2.value = scoreInputState.team2Score;
+    }
+    return;
+  }
+  
+  // Only capture digit keys (0-9)
+  if (!/^\d$/.test(e.key)) return;
+  
+  e.preventDefault();
+  const digit = parseInt(e.key);
+  
+  if (scoreInputState.currentTeam === 1) {
+    // Team 1 input
+    if (scoreInputState.team1Score === null) {
+      scoreInputState.team1Score = digit;
+      const input1 = document.getElementById('currentScoreIndex1');
+      if (input1) input1.value = digit;
+    } else {
+      const scoreStr = String(scoreInputState.team1Score);
+      
+      // Limit to 2 digits (score max 32)
+      if (scoreStr.length >= 2) {
+        scoreInputState.team1Score = digit;
+      } else {
+        scoreInputState.team1Score = scoreInputState.team1Score * 10 + digit;
+        if (scoreInputState.team1Score > 32) {
+          scoreInputState.team1Score = digit;
+        }
+      }
+      
+      const input1 = document.getElementById('currentScoreIndex1');
+      if (input1) input1.value = scoreInputState.team1Score;
+      
+      // Switch to team 2 after 2 digits
+      if (String(scoreInputState.team1Score).length >= 2) {
+        scoreInputState.currentTeam = 2;
+        focusedTeamInEdit = 2;
+        setTimeout(() => {
+          const input2 = document.getElementById('currentScoreIndex2');
+          if (input2) input2.focus();
+        }, 0);
+      }
+    }
+  } else {
+    // Team 2 input
+    if (scoreInputState.team2Score === null) {
+      scoreInputState.team2Score = digit;
+      const input2 = document.getElementById('currentScoreIndex2');
+      if (input2) input2.value = digit;
+    } else {
+      const scoreStr = String(scoreInputState.team2Score);
+      
+      // Limit to 2 digits (score max 32)
+      if (scoreStr.length >= 2) {
+        scoreInputState.team2Score = digit;
+      } else {
+        scoreInputState.team2Score = scoreInputState.team2Score * 10 + digit;
+        if (scoreInputState.team2Score > 32) {
+          scoreInputState.team2Score = digit;
+        }
+      }
+      
+      const input2 = document.getElementById('currentScoreIndex2');
+      if (input2) input2.value = scoreInputState.team2Score;
+      
+      // Both scores entered, auto-save and restart
+      if (String(scoreInputState.team2Score).length >= 2) {
+        saveScoresFromInputs();
+        scoreInputState.team1Score = null;
+        scoreInputState.team2Score = null;
+        scoreInputState.currentTeam = 1;
+        focusedTeamInEdit = 1;
+        
+        setTimeout(() => {
+          const input1 = document.getElementById('currentScoreIndex1');
+          if (input1) input1.focus();
+        }, 0);
+      }
+    }
+  }
+  
+  updateScoreInputs();
+}
+
+function navigateToNextMatch() {
+  if (currentTour === null || currentTour === -1) return;
+  
+  const totalMatches = planning[currentTour].matchs.length;
+  let nextIndex = focusedMatchIndex + 1;
+  
+  if (nextIndex >= totalMatches) {
+    nextIndex = 0; // Cycle back to first
+  }
+  
+  focusedMatchIndex = nextIndex;
+  currentEditMatchIndex = -1;
+  scoreInputState.team1Score = null;
+  scoreInputState.team2Score = null;
+  scoreInputState.currentTeam = 1;
+  focusedTeamInEdit = 1;
+  
+  document.removeEventListener('keydown', handleScoreKeydown);
+  renderTournament();
+}
+
+function navigateToPreviousMatch() {
+  if (currentTour === null || currentTour === -1) return;
+  
+  const totalMatches = planning[currentTour].matchs.length;
+  let prevIndex = focusedMatchIndex - 1;
+  
+  if (prevIndex < 0) {
+    prevIndex = totalMatches - 1; // Cycle to last
+  }
+  
+  focusedMatchIndex = prevIndex;
+  currentEditMatchIndex = -1;
+  scoreInputState.team1Score = null;
+  scoreInputState.team2Score = null;
+  scoreInputState.currentTeam = 1;
+  focusedTeamInEdit = 1;
+  
+  document.removeEventListener('keydown', handleScoreKeydown);
+  renderTournament();
+}
+
+function updateScoreInputs() {
+  const input1 = document.getElementById('currentScoreIndex1');
+  const input2 = document.getElementById('currentScoreIndex2');
+  
+  if (input1 && scoreInputState.team1Score !== null) {
+    input1.value = scoreInputState.team1Score;
+  }
+  if (input2 && scoreInputState.team2Score !== null) {
+    input2.value = scoreInputState.team2Score;
+  }
+}
+
+function saveScoresFromInputs() {
+  if (currentEditMatchIndex === -1 || currentTour === null) return;
+  
+  const input1 = document.getElementById('currentScoreIndex1');
+  const input2 = document.getElementById('currentScoreIndex2');
+  
+  if (input1 && input2) {
+    const score1 = parseInt(input1.value) || 0;
+    const score2 = parseInt(input2.value) || 0;
+    
+    // Validate scores
+    if (score1 >= 0 && score1 <= 32 && score2 >= 0 && score2 <= 32) {
+      planning[currentTour].matchs[currentEditMatchIndex].scoreTeam1 = score1;
+      planning[currentTour].matchs[currentEditMatchIndex].scoreTeam2 = score2;
+      saveData();
+    }
+  }
 }
 
 function teamWin(isTeam1) {
@@ -1127,7 +1477,7 @@ function renderResults() {
         <button onclick="togglePanel()">⚙️ Points</button>
       </div>
 
-      <div class="w-full h-full flex flex-col justify-center items-center">
+      <div class="w-full flex flex-col flex-start mt-10 items-center">
         <button id="reveal-button" class="reveal-btn" onmousedown="startReveal()" onmouseup="cancelReveal()" onmouseleave="cancelReveal()" ontouchstart="startReveal()" ontouchend="cancelReveal()">
           Cliquez et maintenez<br/>pour révéler les résultats
         </button>
@@ -1294,7 +1644,7 @@ function showAboutPopup() {
   popup.id = "about-popup";
   popup.className = "popup-overlay";
   popup.innerHTML = `
-    <div class="popup-content overflow-auto w-full m-10">
+    <div class="popup-content overflow-auto max-h-screen w-full m-10">
       <h2>Générateur de tournoi de Badminton</h2>
 
       <h3 style="font-weight: bold;">A propos du développeur</h3>
@@ -1364,9 +1714,12 @@ function getTempsEcoule(dateDepart, dateFin = null, formatInteger = false) {
 function launchTournoi() {
   togglePanel(true);
   currentTour = 0;
+  focusedMatchIndex = 0; // Focus on first match
+  currentEditMatchIndex = -1;
   document
     .getElementById("tour-" + (currentTour + 1))
-    .scrollIntoView({ behavior: "smooth", block: "start" });
+    .querySelector(".match")
+    .scrollIntoView({ behavior: "smooth", block: "start", offset: -100 });
   planning[currentTour].startDate = Date.now();
   renderTournament();
   currentStopTimer = afficherTempsEcoule(
@@ -1392,6 +1745,8 @@ function clotureTour() {
   planning[currentTour].closed = true;
   if (currentTour < planning.length) {
     currentTour++;
+    focusedMatchIndex = 0; // Focus on first match of new tour
+    currentEditMatchIndex = -1;
     document
       .getElementById("tour-" + (currentTour + 1))
       .scrollIntoView({ behavior: "smooth", block: "start" });
