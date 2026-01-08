@@ -420,6 +420,8 @@ mark{
 .genderFilterActif, .typeTournoiFilterActif{
     background-color: var(--bg2-color);
     color: var(--text2-color);
+    font-weight: bold;
+
 }
 
 /* Styles for score inputs in match editing mode */
@@ -462,4 +464,46 @@ mark{
 
 .match {
   scroll-margin-top: 200px; /* décalage de 200px vers le bas */
+}
+
+/* Improved player card styles */
+.player-preparation-H,
+.player-preparation-F {
+    background-color: var(--bg-homme) !important;
+    border: 2px solid #cee4e7;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+}
+
+.player-preparation-F {
+    background-color: var(--bg-femme) !important;
+    border-color: #f0ddf0;
+}
+
+.player-preparation-H:hover,
+.player-preparation-F:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+}
+
+/* Delete button styles */
+.delete-btn {
+    background: transparent;
+    border: none;
+    color: #9ca3af;
+    font-size: 1.25rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 0.25rem 0.5rem;
+    min-width: 40px;
+    text-align: center;
+}
+
+.delete-btn:hover {
+    color: #ef4444;
+    transform: scale(1.1);
+}
+
+.delete-btn-confirm {
+    font-size: 1.5rem !important;
 }

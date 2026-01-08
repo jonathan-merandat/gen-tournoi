@@ -321,6 +321,12 @@ function regenerate() {
 // -- RENDER PLAYERS SECTION --
 function renderPreparationSection() {
   const el = document.getElementById("preparation");
+  // Use global filter or default to "tous"
+  if (!window.playerGenderFilterGlobal) {
+    window.playerGenderFilterGlobal = "tous";
+  }
+  let playerGenderFilter = window.playerGenderFilterGlobal;
+  
   el.innerHTML = `
     <div class="sous-header">
       <h2>🛠️ Préparation</h2>
@@ -359,36 +365,39 @@ function renderPreparationSection() {
 
     <div class="sous-header justify-between items-center">
       <h2>👥 Liste des joueurs</h2>
-      <span>${
-        players.length == 0 ? "Aucun joueur" : ` ${players.length} joueurs`
-      }</span>
+      <button class="px-4 py-2 bg-gray-200 text-white rounded" onclick="deleteAllPlayers();" title="Supprimer tous les joueurs">🗑️</button>
+
     </div>
+    
     <div class="flex-auto">
-      <form id="form-add-player" class=" sous-header-secondary flex flex-wrap gap-1">
-          <div class="flex items-start gap-1" >
-            <div class="flex flex-auto flex-wrap gap-1" >
-              <input class="w-full" id="name-player" placeholder="Nouveau joueur" value="" />
-              <div class="flex flex-auto gap-1" >
-                <select id="gender-player" class="flex-auto" >
-                    <option value="H" selected>H</option>
-                    <option value="F">F</option>
-                </select>
-                <select id="level-player" >
-                ${levels
-                  .map(
-                    (l) =>
-                      `<option value="${l}" ${
-                        "NC" === l ? "selected" : ""
-                      }>${l}</option>`
-                  )
-                  .join("")}
-                </select>
-              </div>
-            </div>
-            <button class="overflow-hidden text-ellipsis btn-primary rounded min-w-12" type="submit" id="addPlayer">Ajouter</button>
+      <form id="form-add-player" class="sous-header-secondary flex flex-wrap gap-2">
+          <div class="flex items-center gap-2 w-full flex-wrap">
+            <input class="flex-1" id="name-player" placeholder="Nom du joueur" value="" />
+            <select id="gender-player" class="px-3 py-2" >
+                <option value="H" selected>♂️ Homme</option>
+                <option value="F">♀️ Dame</option>
+            </select>
+            <select id="level-player" class="px-3 py-2">
+            ${levels
+              .map(
+                (l) =>
+                  `<option value="${l}" ${
+                    "NC" === l ? "selected" : ""
+                  }>${l}</option>`
+              )
+              .join("")}
+            </select>
+            <button class="btn-primary px-4 py-2 flex-auto" type="submit" id="addPlayer">+ Ajouter</button>
           </div>
       </form>
-      <div id="playerList" class="m-5 flex flex-wrap gap-4"></div>
+
+      <div class="sous-header-secondary flex gap-0 w-full mt-2 items-stretch">
+        <button class="flex-auto px-4 py-2 ${playerGenderFilter === 'tous' ? 'genderFilterActif' : 'bg-gray-300 text-black'} rounded-l-md" onclick="updatePlayerGenderFilter('tous');">Tous (${players.length})</button>
+        <button class="flex-auto px-4 py-2 ${playerGenderFilter === 'H' ? 'genderFilterActif' : 'bg-gray-300 text-black'} border-l border-r border-gray-400" onclick="updatePlayerGenderFilter('H');">♂️ Hommes (${players.filter(p => p.gender === 'H').length})</button>
+        <button class="flex-auto px-4 py-2 ${playerGenderFilter === 'F' ? 'genderFilterActif' : 'bg-gray-300 text-black'} rounded-r-md" onclick="updatePlayerGenderFilter('F');">♀️ Dames (${players.filter(p => p.gender === 'F').length})</button>
+      </div>
+
+      <div id="playerList" class="m-5 flex flex-wrap gap-3"></div>
     </div>
 
     <footer class="footer flex justify-end">
@@ -410,7 +419,7 @@ function renderPreparationSection() {
             : currentTour == -1
             ? "prêt"
             : "en cours"
-        } ⭢ </button>
+        } ➜ </button>
       </div>
       `
     }
@@ -462,36 +471,32 @@ function renderPreparationSection() {
 
   const list = el.querySelector("#playerList");
   list.innerHTML = players
+    .filter(p => playerGenderFilter === "tous" || p.gender === playerGenderFilter)
     .map(
-      (p, i) => `
-      <div class="player player-preparation-${
-        p.gender
-      } w-96 flex items-start gap-1 p-2 border rounded-lg 
-      }" >
-        <div class="flex flex-col flex-auto" >
-          <input class="w-full" id="name_${i}" value="${
-        p.name
-      }" onchange="players[${i}].name=this.value;saveData();renderPreparationSection()" />
-          <div class="flex" >
-            <select class="flex-auto" onchange="players[${i}].gender=this.value;saveData();renderPreparationSection()">
-              <option value="H" ${p.gender === "H" ? "selected" : ""}>H</option>
-              <option value="F" ${p.gender === "F" ? "selected" : ""}>F</option>
-            </select>
-            <select onchange="players[${i}].level=this.value;saveData();renderPreparationSection()">
-              ${levels
-                .map(
-                  (l) =>
-                    `<option value="${l}" ${
-                      p.level === l ? "selected" : ""
-                    }>${l}</option>`
-                )
-                .join("")}
-            </select>
-          </div>
+      (p, i) => {
+        const actualIndex = players.indexOf(p);
+        return `
+      <div class="player player-preparation-${p.gender} flex flex-col gap-1 p-2 border rounded-lg flex-shrink-0" style="width: 220px;">
+        <input class="w-full text-sm font-semibold" id="name_${actualIndex}" value="${p.name}" onchange="players[${actualIndex}].name=this.value;saveData();renderPreparationSection()" />
+        <div class="flex gap-1" >
+          <select class="flex-1 text-sm" onchange="players[${actualIndex}].gender=this.value;saveData();renderPreparationSection()">
+            <option value="H" ${p.gender === "H" ? "selected" : ""}>♂️ Homme</option>
+            <option value="F" ${p.gender === "F" ? "selected" : ""}>♀️ Dame</option>
+          </select>
+          <select class="flex-1 text-sm" onchange="players[${actualIndex}].level=this.value;saveData();renderPreparationSection()">
+            ${levels
+              .map(
+                (l) =>
+                  `<option value="${l}" ${
+                    p.level === l ? "selected" : ""
+                  }>${l}</option>`
+              )
+              .join("")}
+          </select>
         </div>
-          <button class="text-2xl" onclick="requestDeletePlayer(event, ${i});"> ⛔ </button>
+        <button class="delete-btn" onclick="requestDeletePlayer(event, ${actualIndex});" title="Supprimer ce joueur">✕ Supprimer</button>
       </div>
-  `
+  `}
     )
     .join("");
 
@@ -644,24 +649,48 @@ function renderPreparationSection() {
 function requestDeletePlayer(event, i) {
   event.preventDefault();
   event.stopPropagation();
-  event.currentTarget.innerHTML = "⛔ Supprimer";
-  event.currentTarget.setAttribute("class", "text-base btn-warning");
-  const listener = (event) => {
+  
+  const btn = event.currentTarget;
+  const originalText = btn.textContent;
+  const originalClass = btn.className;
+  
+  btn.textContent = "⚠️ Confirmer ?";
+  btn.className = "delete-btn delete-btn-confirm";
+  btn.style.color = "#f97316";
+  
+  const confirmListener = (event) => {
     event.preventDefault();
     players.splice(i, 1);
     saveData();
     renderPreparationSection();
   };
-  event.currentTarget.addEventListener("click", listener, { once: true });
-  document.body.addEventListener(
-    "click",
-    ((target, listener, evt) => {
-      target.innerHTML = "⛔";
-      target.setAttribute("class", "text-2xl");
-      target.removeEventListener("click", listener);
-    }).bind(this, event.currentTarget, listener),
-    { once: true }
-  );
+  
+  const cancelListener = (event) => {
+    btn.textContent = originalText;
+    btn.className = originalClass;
+    btn.style.color = "";
+    btn.removeEventListener("click", confirmListener);
+    document.removeEventListener("click", cancelListener);
+  };
+  
+  btn.addEventListener("click", confirmListener, { once: true });
+  setTimeout(() => {
+    document.addEventListener("click", cancelListener, { once: true });
+  }, 0);
+}
+
+function updatePlayerGenderFilter(gender) {
+  // Store filter in a global variable and re-render
+  window.playerGenderFilterGlobal = gender;
+  renderPreparationSection();
+}
+
+function deleteAllPlayers() {
+  if (confirm("Êtes-vous sûr de vouloir supprimer TOUS les joueurs ? Cette action est irréversible.")) {
+    players = [];
+    saveData();
+    renderPreparationSection();
+  }
 }
 
 // -- RENDER TOURNAMENT SECTION --
@@ -672,7 +701,7 @@ function renderTournament() {
 
   el.innerHTML = `
       <div class="sous-header flex justify-between items-center w-full">
-        <button onclick="togglePanel(true);renderPreparationSection();showSection('preparation');"> ⭠ Retour<div> </button>
+        <button onclick="togglePanel(true);renderPreparationSection();showSection('preparation');"> ⬅ Retour<div> </button>
         <div class="flex justify-between mx-3 gap-4 ">
           ${
             "" /*<span>${
@@ -1476,6 +1505,459 @@ function getTpsTotal() {
   return `${secondes} s`;
 }
 
+// -- PDF GENERATION --
+async function generateTournamentPDF() {
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF('p', 'mm', 'a4');
+  
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 12;
+  const contentWidth = pageWidth - 2 * margin;
+  let yPos = margin;
+  const lineHeight = 4.8;
+  
+  // Compute stats
+  const participants = players.length;
+  const terrains = settings.terrains;
+  const roundsCount = planning.length;
+  let matchesPlayed = 0;
+  for (const t of planning) {
+    for (const m of t.matchs) {
+      if (typeof m.scoreTeam1 === 'number' && typeof m.scoreTeam2 === 'number') matchesPlayed++;
+    }
+  }
+  
+  const now = new Date();
+  const generatedAt = now.toLocaleString('fr-FR');
+  
+  // Compute scores and rankings
+  const scores = calculerScores();
+  const joueurs = players.map((p) => ({
+    id: p.id,
+    nom: p.name,
+    gender: p.gender,
+    points: scores[p.id]?.points || 0,
+    scoreTotal: scores[p.id]?.scoreTotal || 0
+  }));
+  joueurs.sort((a, b) => b.points - a.points || b.scoreTotal - a.scoreTotal);
+  const overall = joueurs;
+  const hommes = joueurs.filter(j => j.gender === 'H');
+  const dames = joueurs.filter(j => j.gender === 'F');
+  
+  // ===== BEAUTIFUL HEADER WITH BADMINTON RACKET ICON =====
+  // Header background box (light blue)
+  pdf.setFillColor(59, 130, 246);
+  pdf.rect(margin - 1, yPos - 3, contentWidth + 2, 16, 'F');
+  
+  // Title with badminton racket symbol
+  pdf.setFontSize(16);
+  pdf.setFont(undefined, 'bold');
+  pdf.setTextColor(255, 255, 255);
+  pdf.text('* Resultats du Tournoi *', pageWidth / 2, yPos + 6, { align: 'center' });
+  
+  yPos += 17;
+  
+  // Reset text color to black
+  pdf.setTextColor(0, 0, 0);
+  
+  // Generation info
+  pdf.setFontSize(8);
+  pdf.setFont(undefined, 'normal');
+  pdf.text(`Généré le ${generatedAt}`, margin, yPos);
+  yPos += lineHeight;
+  
+  // Stats line with symbols
+  pdf.setFontSize(8);
+  const statsText = `Participants: ${participants} | Terrains: ${terrains} | Tours: ${roundsCount} | Matchs: ${matchesPlayed}`;
+  pdf.text(statsText, margin, yPos);
+  yPos += lineHeight + 2;
+  
+  // Separator line
+  pdf.setDrawColor(200, 200, 200);
+  pdf.line(margin, yPos - 3, pageWidth - margin, yPos - 3 );
+  yPos += 2;
+  
+  // ===== THREE-COLUMN RANKINGS =====
+  const colX = [margin, margin + contentWidth / 3, margin + 2 * contentWidth / 3];
+  const colWidth = contentWidth / 3 - 2;
+  
+  // Helper to add ranking column with styled header
+  const addRankingColumn = (xStart, title, rankingList, isLeft = false, isRight = false) => {
+    const titleIcon = ""; //title === 'Général' ? '[G]' : title === 'Hommes' ? '[H]' : '[F]';
+    
+    // Column background
+    pdf.setFillColor(240, 245, 250);
+    pdf.rect(xStart - 1, yPos - 3, colWidth, 3 + (rankingList.length + 1) * lineHeight, 'F');
+    
+    // Column header
+    pdf.setFontSize(9);
+    pdf.setFont(undefined, 'bold');
+    pdf.setTextColor(30, 70, 150);
+    pdf.text(`${titleIcon} ${title}`, xStart + 1, yPos + 3);
+    
+    const colYStart = yPos + lineHeight + 2 ;
+    
+    pdf.setFontSize(7);
+    pdf.setFont(undefined, 'normal');
+    pdf.setTextColor(0, 0, 0);
+    
+    rankingList.forEach((j, i) => {
+      const genderIcon = j.gender === 'H' ? '[M]' : '[F]';
+      const nameShort = j.nom.substring(0, 11);
+      const text = `${i + 1}. ${nameShort} ${genderIcon} ${j.points}pts`;
+      pdf.text(text, xStart + 1, colYStart + i * lineHeight);
+    });
+    
+    return colYStart + rankingList.length * lineHeight;
+  };
+  
+  // Draw three columns
+  let maxYPos = addRankingColumn(colX[0], 'Classement général', overall, true);
+  let y2 = addRankingColumn(colX[1], 'Hommes', hommes);
+  let y3 = addRankingColumn(colX[2], 'Dames', dames, false, true);
+  yPos = Math.max(maxYPos, y2, y3) + 3;
+  
+  // Separator line
+  pdf.setDrawColor(200, 200, 200);
+  pdf.line(margin, yPos - 1, pageWidth - margin, yPos - 1);
+  yPos += 2;
+  
+  // ===== MATCHES BY TOUR (INLINE FORMAT) =====
+  pdf.setFontSize(7);
+  pdf.setFont(undefined, 'normal');
+  pdf.setTextColor(0, 0, 0);
+  
+  for (let tourIdx = 0; tourIdx < planning.length; tourIdx++) {
+    const tour = planning[tourIdx];
+    const matchs = tour.matchs;
+
+    // Tour title with background
+    pdf.setFillColor(230, 240, 250);
+    pdf.rect(margin - 1, yPos - 3.5, contentWidth + 2, lineHeight + 1, 'F');
+
+    pdf.setFont(undefined, 'bold');
+    pdf.setFontSize(8);
+    let tourText = `Tour ${tourIdx + 1}`;
+    pdf.text(tourText, margin + 1, yPos);
+    let xPos = margin + pdf.getTextWidth(tourText) + 3;
+
+    pdf.setFont(undefined, 'normal');
+    pdf.setFontSize(7);
+
+    // Format matches inline, but richer: show players with levels, initial and final scores, bold winning team
+    for (let i = 0; i < matchs.length; i++) {
+      const match = matchs[i];
+
+      // Build team strings with levels: "Name[Level] - Name[Level]"
+      const team1Str = match.team1
+        .map((p) => `${p.name}${p.level ? '[' + p.level + ']' : ''}`)
+        .join(' - ');
+      const team2Str = match.team2
+        .map((p) => `${p.name}${p.level ? '[' + p.level + ']' : ''}`)
+        .join(' - ');
+
+      const init1 = match.initialScoreTeam1 !== undefined ? match.initialScoreTeam1 : '-';
+      const init2 = match.initialScoreTeam2 !== undefined ? match.initialScoreTeam2 : '-';
+      const final1 = match.scoreTeam1 !== undefined ? match.scoreTeam1 : '-';
+      const final2 = match.scoreTeam2 !== undefined ? match.scoreTeam2 : '-';
+
+      const team1Win = typeof match.scoreTeam1 === 'number' && typeof match.scoreTeam2 === 'number' && match.scoreTeam1 > match.scoreTeam2;
+      const team2Win = typeof match.scoreTeam1 === 'number' && typeof match.scoreTeam2 === 'number' && match.scoreTeam2 > match.scoreTeam1;
+
+      // Prefix: "- Match N : "
+      const prefix = `- Match ${i + 1} : `;
+      let segmentX = xPos;
+      const availableRight = pageWidth - margin - segmentX;
+
+      // Compose full display line but draw in segments so we can bold winner
+      // Segments: prefix, team1, " -- final1 - final2 -- ", team2, "   | scores initial : init1 - init2"
+      const segPrefix = prefix;
+      const segFinalScores = ` | ${final1} - ${final2} | `;
+      const segInitial = `   | scores initial : ${init1} - ${init2}`;
+
+      // Calculate widths to handle wrapping
+      const widthPrefix = pdf.getTextWidth(segPrefix);
+      const widthTeam1 = pdf.getTextWidth(team1Str);
+      const widthFinal = pdf.getTextWidth(segFinalScores);
+      const widthTeam2 = pdf.getTextWidth(team2Str);
+      const widthInit = pdf.getTextWidth(segInitial);
+      const totalWidth = widthPrefix + widthTeam1 + widthFinal + widthTeam2 + widthInit + 10;
+
+      // Always start each match on a new line
+      yPos += lineHeight;
+      segmentX = margin + 4;
+
+      // Draw prefix
+      pdf.setFont(undefined, 'normal');
+      pdf.text(segPrefix, segmentX, yPos);
+      segmentX += widthPrefix + 2;
+
+      // Draw team1 (bold if winner)
+      if (team1Win) pdf.setFont(undefined, 'bold');
+      else pdf.setFont(undefined, 'normal');
+      pdf.text(team1Str, segmentX, yPos);
+      segmentX += widthTeam1 + 2;
+
+      // Draw final scores separator (normal)
+      pdf.setFont(undefined, 'normal');
+      pdf.text(segFinalScores, segmentX, yPos);
+      segmentX += widthFinal + 2;
+
+      // Draw team2 (bold if winner)
+      if (team2Win) pdf.setFont(undefined, 'bold');
+      else pdf.setFont(undefined, 'normal');
+      pdf.text(team2Str, segmentX, yPos);
+      segmentX += widthTeam2 + 2;
+
+      // Draw initial scores (lighter color)
+      pdf.setFont(undefined, 'normal');
+      pdf.setTextColor(120, 120, 120);
+      pdf.text(segInitial, segmentX, yPos);
+      // restore text color
+      pdf.setTextColor(0, 0, 0);
+    }
+
+    yPos += lineHeight + 1;
+  }
+  
+  // ===== FOOTER =====
+  pdf.setFontSize(7);
+  pdf.setFont(undefined, 'normal');
+  pdf.setTextColor(150, 150, 150);
+  
+  // Footer line separator
+  pdf.setDrawColor(200, 200, 200);
+  pdf.line(margin, pageHeight - 12, pageWidth - margin, pageHeight - 12);
+  
+  // Developer info
+  pdf.text('Développé par Jonathan Merandat', margin, pageHeight - 9);
+  pdf.text('Email: jonathan.merandat.dev@outlook.com', margin, pageHeight - 6);
+  
+  // Page number (optional)
+  pdf.text(`Page 1`, pageWidth - margin - 10, pageHeight - 6);
+  
+  return pdf;
+}
+
+
+
+function isMobileDevice() {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
+async function handleShareTournament() {
+  const fileName = `Tournoi_Badminton_${new Date().toISOString().split('T')[0]}.pdf`;
+  
+  // Show loading overlay
+  const loader = createFullPageLoader();
+  document.body.appendChild(loader);
+  
+  try {
+    const pdf = await generateTournamentPDF();
+    
+    // Hide loader
+    document.body.removeChild(loader);
+    
+    if (isMobileDevice()) {
+      // Mobile: Use Web Share API if available
+      if (navigator.share) {
+        const blob = pdf.output('blob');
+        const file = new File([blob], fileName, { type: 'application/pdf' });
+        
+        try {
+          await navigator.share({
+            files: [file],
+            title: 'Résultats du tournoi',
+            text: 'Découvrez les résultats du tournoi de badminton'
+          });
+        } catch (err) {
+          // User cancelled share, show fallback
+          showShareMenu(pdf, fileName);
+        }
+      } else {
+        // Fallback: Show mobile share menu
+        showShareMenu(pdf, fileName);
+      }
+    } else {
+      // Desktop: Direct download
+      pdf.save(fileName);
+    }
+  } catch (error) {
+    console.error('Error generating PDF:', error);
+    if (document.body.contains(loader)) {
+      document.body.removeChild(loader);
+    }
+    alert('Erreur lors de la génération du PDF');
+  }
+}
+
+function createFullPageLoader() {
+  const loader = document.createElement('div');
+  loader.id = 'pdf-loader';
+  loader.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+  `;
+  
+  const content = document.createElement('div');
+  content.style.cssText = `
+    background: white;
+    padding: 40px;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  `;
+  
+  const spinner = document.createElement('div');
+  spinner.style.cssText = `
+    width: 50px;
+    height: 50px;
+    border: 4px solid #f0f0f0;
+    border-top: 4px solid #3b82f6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+  `;
+  
+  const text = document.createElement('p');
+  text.textContent = 'Génération du PDF en cours...';
+  text.style.cssText = `
+    margin: 0;
+    font-size: 16px;
+    color: #333;
+    font-weight: 500;
+  `;
+  
+  // Add animation
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  `;
+  document.head.appendChild(style);
+  
+  content.appendChild(spinner);
+  content.appendChild(text);
+  loader.appendChild(content);
+  
+  return loader;
+}
+function showShareMenu(pdf, fileName) {
+  // Create a hidden container for the share menu
+  const menu = document.createElement('div');
+  menu.style.cssText = `
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    border-top: 2px solid #ccc;
+    padding: 1rem;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 50vh;
+    overflow-y: auto;
+  `;
+  
+  const pdfData = pdf.output('dataurlstring');
+  
+  // Download button
+  const downloadBtn = document.createElement('button');
+  downloadBtn.textContent = '📥 Télécharger';
+  downloadBtn.style.cssText = `
+    padding: 0.75rem;
+    background: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    font-size: 1rem;
+  `;
+  downloadBtn.onclick = () => {
+    pdf.save(fileName);
+    menu.remove();
+  };
+  
+  // WhatsApp button
+  const whatsappBtn = document.createElement('button');
+  whatsappBtn.textContent = '💬 WhatsApp';
+  whatsappBtn.style.cssText = `
+    padding: 0.75rem;
+    background: #25D366;
+    color: white;
+    border: none;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    font-size: 1rem;
+  `;
+  whatsappBtn.onclick = () => {
+    const message = encodeURIComponent('Découvrez les résultats de notre tournoi de badminton! Fichier PDF en pièce jointe.');
+    window.open(`whatsapp://send?text=${message}`, '_blank');
+    menu.remove();
+  };
+  
+  // Email button
+  const emailBtn = document.createElement('button');
+  emailBtn.textContent = '📧 Email';
+  emailBtn.style.cssText = `
+    padding: 0.75rem;
+    background: #EA4335;
+    color: white;
+    border: none;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    font-size: 1rem;
+  `;
+  emailBtn.onclick = () => {
+    const subject = encodeURIComponent('Résultats du tournoi de badminton');
+    const body = encodeURIComponent('Veuillez trouver en pièce jointe les résultats du tournoi de badminton.');
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+    menu.remove();
+  };
+  
+  // Cancel button
+  const cancelBtn = document.createElement('button');
+  cancelBtn.textContent = '✕ Fermer';
+  cancelBtn.style.cssText = `
+    padding: 0.75rem;
+    background: #e5e7eb;
+    color: #000;
+    border: none;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    font-size: 1rem;
+  `;
+  cancelBtn.onclick = () => menu.remove();
+  
+  menu.appendChild(downloadBtn);
+  menu.appendChild(whatsappBtn);
+  menu.appendChild(emailBtn);
+  menu.appendChild(cancelBtn);
+  
+  document.body.appendChild(menu);
+  
+  // Close menu when clicking outside
+  setTimeout(() => {
+    document.addEventListener('click', (e) => {
+      if (!menu.contains(e.target)) {
+        menu.remove();
+      }
+    }, { once: true });
+  }, 0);
+}
+
 function renderResults() {
   const el = document.getElementById("results");
   const scores = calculerScores();
@@ -1497,7 +1979,7 @@ function renderResults() {
   });
 
   const filterButtonsHtml = `
-    <div class="mt-4 flex gap-0">
+    <div class="flex gap-0">
       <button class="px-4 py-2 ${genderFilter === 'tous' ? 'genderFilterActif' : 'bg-gray-300 text-black'} rounded-l-md" onclick="genderFilter='tous';renderResults();">Tous</button>
       <button class="px-4 py-2 ${genderFilter === 'H' ? 'genderFilterActif' : 'bg-gray-300 text-black'} border-l border-r border-gray-400" onclick="genderFilter='H';renderResults();">Hommes</button>
       <button class="px-4 py-2 ${genderFilter === 'F' ? 'genderFilterActif' : 'bg-gray-300 text-black'} rounded-r-md" onclick="genderFilter='F';renderResults();">Dames</button>
@@ -1507,7 +1989,7 @@ function renderResults() {
   if (!resultsRevealed) {
     el.innerHTML = `
       <div class="sous-header flex justify-between items-center w-full">
-        <button onclick="togglePanel(true);showSection('tournament');">⭠ Retour</button>
+        <button onclick="togglePanel(true);showSection('tournament');">⬅ Retour</button>
         <span>Résultats</span>
         <button onclick="togglePanel()">⚙️ Points</button>
       </div>
@@ -1553,13 +2035,18 @@ function renderResults() {
   } else {
     el.innerHTML = `
       <div class="sous-header flex justify-between items-center w-full">
-        <button onclick="togglePanel(true);showSection('tournament');">⭠ Retour</button>
+        <button onclick="togglePanel(true);showSection('tournament');">⬅ Retour</button>
         <span>Résultats</span>
-        <button onclick="togglePanel()">⚙️ Points</button>
+        <div style="display: flex; gap: 0.5rem;">
+          <button onclick="togglePanel()">⚙️ Points</button>
+        </div>
       </div>
 
       <div class="w-full flex flex-col justify-center items-center">
-        ${filterButtonsHtml}
+        <div class=" px-2 mt-2 flex justify-between w-full items-center">
+          ${filterButtonsHtml}
+          <button onclick="handleShareTournament()" class="btn-secondary bg-gray-300" style="" title="Partager les résultats">📤 Partager</button>
+        </div>
         <ol class="mt-4">
           ${joueursFiltrés
             .map(
