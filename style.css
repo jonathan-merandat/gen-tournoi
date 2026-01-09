@@ -188,6 +188,14 @@ mark{
     z-index: 1;
     }
 
+.sous-header-ternary {
+    background: var(--bg5-color);
+    color: var(--text5-color);
+    padding: 10px;
+    display: flex;
+    justify-content: flex-start;
+}
+
 .btn-primary {
     background: var(--bg2-color);
     color: var(--text2-color); 
@@ -505,5 +513,5 @@ mark{
 }
 
 .delete-btn-confirm {
-    font-size: 1.5rem !important;
+    font-size: 0.9rem !important;
 }

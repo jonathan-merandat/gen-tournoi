@@ -391,7 +391,7 @@ function renderPreparationSection() {
           </div>
       </form>
 
-      <div class="sous-header-secondary flex gap-0 w-full mt-2 items-stretch">
+      <div class="sous-header-ternary flex gap-0 w-full mt-2 items-stretch">
         <button class="flex-auto px-4 py-2 ${playerGenderFilter === 'tous' ? 'genderFilterActif' : 'bg-gray-300 text-black'} rounded-l-md" onclick="updatePlayerGenderFilter('tous');">Tous (${players.length})</button>
         <button class="flex-auto px-4 py-2 ${playerGenderFilter === 'H' ? 'genderFilterActif' : 'bg-gray-300 text-black'} border-l border-r border-gray-400" onclick="updatePlayerGenderFilter('H');">♂️ Hommes (${players.filter(p => p.gender === 'H').length})</button>
         <button class="flex-auto px-4 py-2 ${playerGenderFilter === 'F' ? 'genderFilterActif' : 'bg-gray-300 text-black'} rounded-r-md" onclick="updatePlayerGenderFilter('F');">♀️ Dames (${players.filter(p => p.gender === 'F').length})</button>
@@ -476,9 +476,9 @@ function renderPreparationSection() {
       (p, i) => {
         const actualIndex = players.indexOf(p);
         return `
-      <div class="player player-preparation-${p.gender} flex flex-col gap-1 p-2 border rounded-lg flex-shrink-0" style="width: 220px;">
-        <input class="w-full text-sm font-semibold" id="name_${actualIndex}" value="${p.name}" onchange="players[${actualIndex}].name=this.value;saveData();renderPreparationSection()" />
-        <div class="flex gap-1" >
+      <div class="player player-preparation-${p.gender} flex flex-1 flex-wrap gap-1 p-2 border rounded-lg justify-center items-center" style="">
+        <input class="flex-1 text-sm font-semibold" id="name_${actualIndex}" value="${p.name}" onchange="players[${actualIndex}].name=this.value;saveData();renderPreparationSection()" />
+        <div class="flex flex-auto gap-1" >
           <select class="flex-1 text-sm" onchange="players[${actualIndex}].gender=this.value;saveData();renderPreparationSection()">
             <option value="H" ${p.gender === "H" ? "selected" : ""}>♂️ Homme</option>
             <option value="F" ${p.gender === "F" ? "selected" : ""}>♀️ Dame</option>
@@ -494,7 +494,7 @@ function renderPreparationSection() {
               .join("")}
           </select>
         </div>
-        <button class="delete-btn" onclick="requestDeletePlayer(event, ${actualIndex});" title="Supprimer ce joueur">✕ Supprimer</button>
+        <button class="delete-btn text-sm"" onclick="requestDeletePlayer(event, ${actualIndex});" title="Supprimer ce joueur">✕ Supprimer</button>
       </div>
   `}
     )
@@ -712,7 +712,7 @@ function renderTournament() {
 
           <span>${
             currentTour == null
-              ? `Tournoi terminé - Durée : ${getTpsTotal()}`
+              ? `Durée totale : ${getTpsTotal()}`
               : currentTour == -1
               ? "Prêt à lancer !"
               : ``
@@ -1740,6 +1740,225 @@ async function generateTournamentPDF() {
   return pdf;
 }
 
+// -- IMAGE GENERATION --
+async function generateTournamentImage() {
+  // Create canvas (A4 portrait at 150 DPI)
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  
+  // Canvas dimensions (A4: 210x297mm at 150 DPI = 1240x1754 pixels)
+  const width = 1240;
+  const height = 1754;
+  canvas.width = width;
+  canvas.height = height;
+  
+  // White background
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, width, height);
+  
+  // Compute scores and rankings
+  const scores = calculerScores();
+  const joueurs = players.map((p) => ({
+    id: p.id,
+    nom: p.name,
+    gender: p.gender,
+    points: scores[p.id]?.points || 0,
+    scoreTotal: scores[p.id]?.scoreTotal || 0
+  }));
+  joueurs.sort((a, b) => b.points - a.points || b.scoreTotal - a.scoreTotal);
+  
+  const hommes = joueurs.filter(j => j.gender === 'H');
+  const dames = joueurs.filter(j => j.gender === 'F');
+  
+  // Get top 3 men and women
+  const top3Hommes = hommes.slice(0, 3).map(h => h.id);
+  const top3Dames = dames.slice(0, 3).map(d => d.id);
+  
+  const margin = 150;
+  const contentWidth = width - 2 * margin;
+  const headerHeight = 180;
+  const footerHeight = 130;
+  const availableHeight = height - headerHeight - footerHeight - 90;
+  const bandPadding = 15;
+  
+  // Fixed font sizes
+  const itemHeight = 55;
+  const medalFontSize = 24;
+  const nameFontSize = 20;
+  const pointsFontSize = 22;
+  const iconFontSize = 22;
+  
+  // Determine if we need 2 columns
+  const maxLinesPerColumn = Math.floor(availableHeight / itemHeight);
+  const numPlayers = joueurs.length;
+  const use2Columns = numPlayers > maxLinesPerColumn;
+  
+  let yPos = 40;
+  
+  // Title section with background
+  ctx.fillStyle = '#476d7c';
+  ctx.fillRect(0, 0, width, headerHeight);
+  
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `bold 52px Arial`;
+  ctx.textAlign = 'center';
+  ctx.fillText('🏸 Résultats du tournoi 🏸', width / 2, 70);
+  
+  // General info
+  ctx.font = `40px Arial`;
+  ctx.fillStyle = '#e0e7ff';
+  const statsText = `${players.length} participants | ${settings.terrains} terrains | ${planning.length} tours`;
+  ctx.fillText(statsText, width / 2, 120);
+  
+  const now = new Date().toLocaleDateString('fr-FR');
+  ctx.font = `30px Arial`;
+  ctx.fillStyle = '#cbd5e1';
+  ctx.fillText(`Généré le ${now}`, width / 2, 160);
+  
+  yPos = headerHeight + 45;
+  
+  // General ranking section header
+  ctx.fillStyle = '#2d3748';
+  ctx.font = `bold 28px Arial`;
+  ctx.textAlign = 'center';
+  ctx.fillText('Classement général', width / 2, yPos);
+  yPos += 60;
+  
+  const medals = ['🥇', '🥈', '🥉'];
+  
+  if (use2Columns) {
+    // Two column layout
+    const colWidth = (contentWidth - 20) / 2;
+    const col1X = margin + bandPadding;
+    const col2X = margin + colWidth + 20 + bandPadding;
+    
+    let col1Y = yPos;
+    let col2Y = yPos;
+    
+    joueurs.forEach((player, index) => {
+      const isTopManIndex = top3Hommes.includes(player.id) ? top3Hommes.indexOf(player.id) : -1;
+      const isTopWomanIndex = top3Dames.includes(player.id) ? top3Dames.indexOf(player.id) : -1;
+      
+      // Alternate between columns
+      const isCol2 = index >= Math.ceil(numPlayers / 2);
+      const currentX = isCol2 ? col2X : col1X;
+      const currentY = isCol2 ? col2Y : col1Y;
+      const bandX = isCol2 ? margin + colWidth + 20 : margin;
+      
+      // Alternating background band with padding
+      if (index % 2 === 0) {
+        ctx.fillStyle = '#f8f9fa';
+        ctx.fillRect(bandX, currentY - itemHeight * 0.65, colWidth, itemHeight);
+      }
+      
+      const medal = medals[index] || '•';
+      
+      // Left icon for men finalists
+      if (isTopManIndex !== -1) {
+        ctx.font = `bold ${iconFontSize}px Arial`;
+        ctx.fillStyle = '#476d7c';
+        ctx.textAlign = 'left';
+        ctx.fillText('♂️', currentX, currentY - 8);
+      }
+      
+      // Medal and rank
+      ctx.font = `bold ${medalFontSize}px Arial`;
+      ctx.fillStyle = '#1f2937';
+      ctx.textAlign = 'left';
+      ctx.fillText(`${medal} #${index + 1}`, currentX + 30, currentY - 8);
+      
+      // Player name (no wrapping, single line)
+      ctx.font = `bold ${nameFontSize}px Arial`;
+      ctx.fillStyle = '#000000';
+      ctx.textAlign = 'left';
+      ctx.fillText(player.nom, currentX + 30, currentY + 18);
+      
+      // Points
+      ctx.font = `bold ${pointsFontSize}px Arial`;
+      ctx.fillStyle = '#3b82f6';
+      ctx.textAlign = 'right';
+      ctx.fillText(`${player.points}pts`, bandX + colWidth - bandPadding, currentY + 5);
+      
+      // Right icon for women finalists
+      if (isTopWomanIndex !== -1) {
+        ctx.font = `bold ${iconFontSize}px Arial`;
+        ctx.fillStyle = '#e879a9';
+        ctx.textAlign = 'right';
+        ctx.fillText('♀️', bandX + colWidth - bandPadding, currentY + 20);
+      }
+      
+      if (isCol2) {
+        col2Y += itemHeight;
+      } else {
+        col1Y += itemHeight;
+      }
+    });
+  } else {
+    // Single column layout
+    joueurs.forEach((player, index) => {
+      const isTopManIndex = top3Hommes.includes(player.id) ? top3Hommes.indexOf(player.id) : -1;
+      const isTopWomanIndex = top3Dames.includes(player.id) ? top3Dames.indexOf(player.id) : -1;
+      
+      // Alternating background band with padding
+      if (index % 2 === 0) {
+        ctx.fillStyle = '#f8f9fa';
+        ctx.fillRect(margin, yPos - itemHeight * 0.65, contentWidth, itemHeight);
+      }
+      
+      const medal = medals[index] || '•';
+      
+      // Left icon for men finalists
+      if (isTopManIndex !== -1) {
+        ctx.font = `bold ${iconFontSize}px Arial`;
+        ctx.fillStyle = '#476d7c';
+        ctx.textAlign = 'left';
+        ctx.fillText('♂️', margin + bandPadding, yPos - 8);
+      }
+      
+      // Medal and rank
+      ctx.font = `bold ${medalFontSize}px Arial`;
+      ctx.fillStyle = '#1f2937';
+      ctx.textAlign = 'left';
+      ctx.fillText(`${medal} #${index + 1}`, margin + bandPadding + 30, yPos - 8);
+      
+      // Player name (no wrapping, single line)
+      ctx.font = `bold ${nameFontSize}px Arial`;
+      ctx.fillStyle = '#000000';
+      ctx.textAlign = 'left';
+      ctx.fillText(player.nom, margin + bandPadding + 60, yPos -8);
+      
+      // Points
+      ctx.font = `bold ${pointsFontSize}px Arial`;
+      ctx.fillStyle = '#3b82f6';
+      ctx.textAlign = 'right';
+      ctx.fillText(`${player.points}pts`, width - margin - bandPadding, yPos + 5);
+      
+      // Right icon for women finalists
+      if (isTopWomanIndex !== -1) {
+        ctx.font = `bold ${iconFontSize}px Arial`;
+        ctx.fillStyle = '#e879a9';
+        ctx.textAlign = 'right';
+        ctx.fillText('♀️', margin + bandPadding, yPos - 8);
+      }
+      
+      yPos += itemHeight;
+    });
+  }
+  
+  // Footer at bottom
+  const footerY = height - footerHeight;  
+  ctx.fillStyle = '#e5e7eb';
+  ctx.fillRect(0, footerY + 30, width, footerHeight);
+  
+  ctx.font = `20px Arial`;
+  ctx.fillStyle = '#6b7280';
+  ctx.textAlign = 'center';
+  ctx.fillText('Générateur de Tournoi de Badminton', width / 2, footerY + 60);
+  ctx.fillText('jonathan.merandat.dev@outlook.com', width / 2, footerY + 85);
+  ctx.fillText(`Lien vers l'application : https://jonathan-merandat.github.io/gen-tournoi/`, width / 2, footerY + 115);
+  
+  return canvas;
+}
 
 
 function isMobileDevice() {
@@ -1792,7 +2011,63 @@ async function handleShareTournament() {
   }
 }
 
-function createFullPageLoader() {
+async function handleShareImage() {
+  const fileName = `Tournoi_Badminton_${new Date().toISOString().split('T')[0]}.png`;
+  
+  // Show loading overlay
+  const loader = createFullPageLoader('image');
+  document.body.appendChild(loader);
+  
+  try {
+    const canvas = await generateTournamentImage();
+    
+    // Hide loader
+    document.body.removeChild(loader);
+    
+    if (isMobileDevice()) {
+      // Mobile: Use Web Share API if available
+      if (navigator.share) {
+        canvas.toBlob(async (blob) => {
+          const file = new File([blob], fileName, { type: 'image/png' });
+          
+          try {
+            await navigator.share({
+              files: [file],
+              title: 'Résultats du tournoi',
+              text: 'Découvrez les résultats du tournoi de badminton'
+            });
+          } catch (err) {
+            // User cancelled share, show image download fallback
+            downloadImageFromCanvas(canvas, fileName);
+          }
+        }, 'image/png');
+      } else {
+        // Fallback: Download image
+        downloadImageFromCanvas(canvas, fileName);
+      }
+    } else {
+      // Desktop: Direct download
+      downloadImageFromCanvas(canvas, fileName);
+    }
+  } catch (error) {
+    console.error('Error generating image:', error);
+    if (document.body.contains(loader)) {
+      document.body.removeChild(loader);
+    }
+    alert('Erreur lors de la génération de l\'image');
+  }
+}
+
+function downloadImageFromCanvas(canvas, fileName) {
+  const link = document.createElement('a');
+  link.href = canvas.toDataURL('image/png');
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+function createFullPageLoader(type = 'pdf') {
   const loader = document.createElement('div');
   loader.id = 'pdf-loader';
   loader.style.cssText = `
@@ -1829,7 +2104,7 @@ function createFullPageLoader() {
   `;
   
   const text = document.createElement('p');
-  text.textContent = 'Génération du PDF en cours...';
+  text.textContent = type === 'image' ? 'Génération de l\'image en cours...' : 'Génération du PDF en cours...';
   text.style.cssText = `
     margin: 0;
     font-size: 16px;
@@ -2043,9 +2318,12 @@ function renderResults() {
       </div>
 
       <div class="w-full flex flex-col justify-center items-center">
-        <div class=" px-2 mt-2 flex justify-between w-full items-center">
+        <div class=" px-2 mt-2 flex flex-col gap-2 justify-between w-full items-center">
+          <div style="display: flex; gap: 0.5rem;">
+            <button onclick="handleShareTournament()" class="btn-secondary bg-gray-300" style="" title="Partager en PDF">📄 Partager en PDF</button>
+            <button onclick="handleShareImage()" class="btn-secondary bg-gray-300" style="" title="Partager en image">🖼️ Partager en image</button>
+          </div>
           ${filterButtonsHtml}
-          <button onclick="handleShareTournament()" class="btn-secondary bg-gray-300" style="" title="Partager les résultats">📤 Partager</button>
         </div>
         <ol class="mt-4">
           ${joueursFiltrés
