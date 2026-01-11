@@ -63,6 +63,11 @@ function navigateToNextMatchGlobal() {
   
   focusedMatchIndex = nextIndex;
   renderTournament();
+  
+  // Scroll vers le match focusé
+  setTimeout(() => {
+    scrollToFocusedMatch();
+  }, 50);
 }
 
 function navigateToPreviousMatchGlobal() {
@@ -75,6 +80,11 @@ function navigateToPreviousMatchGlobal() {
   
   focusedMatchIndex = prevIndex;
   renderTournament();
+  
+  // Scroll vers le match focusé
+  setTimeout(() => {
+    scrollToFocusedMatch();
+  }, 50);
 }
 
 // -- SETUP GLOBAL DATA --
@@ -331,7 +341,7 @@ function renderPreparationSection() {
     <div class="sous-header">
       <h2>🛠️ Préparation</h2>
     </div>
-    <div class="flex flex-wrap gap-4 m-5">
+    <div class="flex flex-wrap gap-4 px-2 m-5 max-w-5xl mx-auto">
       <div class="flex flex-col flex-auto">
         <label for="type-tournoi-value" class="mb-2">Type de tournoi</label> 
 
@@ -369,13 +379,13 @@ function renderPreparationSection() {
 
     </div>
     
-    <div class="flex-auto">
+    <div class="flex-auto max-w-5xl mx-auto">
       <form id="form-add-player" class="sous-header-secondary flex flex-wrap gap-2">
           <div class="flex items-center gap-2 w-full flex-wrap">
             <input class="flex-1" id="name-player" placeholder="Nom du joueur" value="" />
             <select id="gender-player" class="px-3 py-2" >
-                <option value="H" selected>♂️ Homme</option>
-                <option value="F">♀️ Dame</option>
+                <option value="H" selected>♂ Homme</option>
+                <option value="F">♀ Dame</option>
             </select>
             <select id="level-player" class="px-3 py-2">
             ${levels
@@ -393,11 +403,11 @@ function renderPreparationSection() {
 
       <div class="sous-header-ternary flex gap-0 w-full mt-2 items-stretch">
         <button class="flex-auto px-4 py-2 ${playerGenderFilter === 'tous' ? 'genderFilterActif' : 'bg-gray-300 text-black'} rounded-l-md" onclick="updatePlayerGenderFilter('tous');">Tous (${players.length})</button>
-        <button class="flex-auto px-4 py-2 ${playerGenderFilter === 'H' ? 'genderFilterActif' : 'bg-gray-300 text-black'} border-l border-r border-gray-400" onclick="updatePlayerGenderFilter('H');">♂️ Hommes (${players.filter(p => p.gender === 'H').length})</button>
-        <button class="flex-auto px-4 py-2 ${playerGenderFilter === 'F' ? 'genderFilterActif' : 'bg-gray-300 text-black'} rounded-r-md" onclick="updatePlayerGenderFilter('F');">♀️ Dames (${players.filter(p => p.gender === 'F').length})</button>
+        <button class="flex-auto px-4 py-2 ${playerGenderFilter === 'H' ? 'genderFilterActif' : 'bg-gray-300 text-black'} border-l border-r border-gray-400" onclick="updatePlayerGenderFilter('H');">♂ Hommes (${players.filter(p => p.gender === 'H').length})</button>
+        <button class="flex-auto px-4 py-2 ${playerGenderFilter === 'F' ? 'genderFilterActif' : 'bg-gray-300 text-black'} rounded-r-md" onclick="updatePlayerGenderFilter('F');">♀ Dames (${players.filter(p => p.gender === 'F').length})</button>
       </div>
 
-      <div id="playerList" class="m-5 flex flex-wrap gap-3"></div>
+      <div id="playerList" class="px-2 m-5 flex flex-wrap gap-3 max-w-5xl mx-auto"></div>
     </div>
 
     <footer class="footer flex justify-end">
@@ -480,8 +490,8 @@ function renderPreparationSection() {
         <input class="flex-1 text-sm font-semibold" id="name_${actualIndex}" value="${p.name}" onchange="players[${actualIndex}].name=this.value;saveData();renderPreparationSection()" />
         <div class="flex flex-auto gap-1" >
           <select class="flex-1 text-sm" onchange="players[${actualIndex}].gender=this.value;saveData();renderPreparationSection()">
-            <option value="H" ${p.gender === "H" ? "selected" : ""}>♂️ Homme</option>
-            <option value="F" ${p.gender === "F" ? "selected" : ""}>♀️ Dame</option>
+            <option value="H" ${p.gender === "H" ? "selected" : ""}>♂ Homme</option>
+            <option value="F" ${p.gender === "F" ? "selected" : ""}>♀ Dame</option>
           </select>
           <select class="flex-1 text-sm" onchange="players[${actualIndex}].level=this.value;saveData();renderPreparationSection()">
             ${levels
@@ -1036,7 +1046,15 @@ function renderTournament() {
                 } class="btn-primary" onclick="clotureTour();"> Clotûrer le tour</button>
               </div>
             </div>`
-                : `<button class="btn-primary" onclick="clotureTournoi();"> Clotûrer le tournoi</button>`
+                : `
+            <div class="flex justify-end w-full p-2">
+              <div class="flex items-center">
+                <span class="text-sm mr-2" id="label-match-restant">${nbMatchRestant} </span>
+                <button id="button-cloture" ${
+                  nbMatchRestant && "disabled"
+                } class="btn-primary" onclick="clotureTournoi();"> Clotûrer le tournoi</button>
+              </div>
+            </div>`
             }
           `
       }
@@ -1286,6 +1304,11 @@ function navigateToNextMatch() {
   
   document.removeEventListener('keydown', handleScoreKeydown);
   renderTournament();
+  
+  // Scroll vers le match focusé
+  setTimeout(() => {
+    scrollToFocusedMatch();
+  }, 50);
 }
 
 function navigateToPreviousMatch() {
@@ -1307,6 +1330,11 @@ function navigateToPreviousMatch() {
   
   document.removeEventListener('keydown', handleScoreKeydown);
   renderTournament();
+  
+  // Scroll vers le match focusé
+  setTimeout(() => {
+    scrollToFocusedMatch();
+  }, 50);
 }
 
 function updateScoreInputs() {
@@ -1774,24 +1802,25 @@ async function generateTournamentImage() {
   const top3Hommes = hommes.slice(0, 3).map(h => h.id);
   const top3Dames = dames.slice(0, 3).map(d => d.id);
   
-  const margin = 150;
-  const contentWidth = width - 2 * margin;
+  const margin = 100;
+  const numPlayers = joueurs.length;
+  const use2Columns = numPlayers >= 25;
+  
+  // Marges différentes selon le mode
+  const sideMargin = use2Columns ? 100 : 250; // Moins de marge pour 2 colonnes
+  const rankingWidth = width - 2 * sideMargin;
   const headerHeight = 180;
   const footerHeight = 130;
   const availableHeight = height - headerHeight - footerHeight - 90;
-  const bandPadding = 15;
+  const bandPadding = 20;
   
   // Fixed font sizes
-  const itemHeight = 55;
-  const medalFontSize = 24;
-  const nameFontSize = 20;
-  const pointsFontSize = 22;
-  const iconFontSize = 22;
-  
-  // Determine if we need 2 columns
-  const maxLinesPerColumn = Math.floor(availableHeight / itemHeight);
-  const numPlayers = joueurs.length;
-  const use2Columns = numPlayers > maxLinesPerColumn;
+  const itemHeight = 50;
+  const medalFontSize = 22;
+  const nameFontSize = 18;
+  const levelFontSize = 14;
+  const pointsFontSize = 20;
+  const iconFontSize = 18;
   
   let yPos = 40;
   
@@ -1828,64 +1857,71 @@ async function generateTournamentImage() {
   
   if (use2Columns) {
     // Two column layout
-    const colWidth = (contentWidth - 20) / 2;
-    const col1X = margin + bandPadding;
-    const col2X = margin + colWidth + 20 + bandPadding;
+    const colWidth = (rankingWidth - 40) / 2;
+    const col1X = sideMargin;
+    const col2X = sideMargin + colWidth + 40;
     
     let col1Y = yPos;
     let col2Y = yPos;
     
     joueurs.forEach((player, index) => {
-      const isTopManIndex = top3Hommes.includes(player.id) ? top3Hommes.indexOf(player.id) : -1;
-      const isTopWomanIndex = top3Dames.includes(player.id) ? top3Dames.indexOf(player.id) : -1;
+      const playerObj = players.find(p => p.id === player.id);
+      const isTopManIndex = top3Hommes.indexOf(player.id);
+      const isTopWomanIndex = top3Dames.indexOf(player.id);
       
       // Alternate between columns
       const isCol2 = index >= Math.ceil(numPlayers / 2);
-      const currentX = isCol2 ? col2X : col1X;
       const currentY = isCol2 ? col2Y : col1Y;
-      const bandX = isCol2 ? margin + colWidth + 20 : margin;
+      const colX = isCol2 ? col2X : col1X;
       
-      // Alternating background band with padding
+      // Alternating background band
       if (index % 2 === 0) {
         ctx.fillStyle = '#f8f9fa';
-        ctx.fillRect(bandX, currentY - itemHeight * 0.65, colWidth, itemHeight);
+        ctx.fillRect(colX, currentY - itemHeight * 0.6, colWidth, itemHeight);
       }
       
       const medal = medals[index] || '•';
-      
-      // Left icon for men finalists
-      if (isTopManIndex !== -1) {
-        ctx.font = `bold ${iconFontSize}px Arial`;
-        ctx.fillStyle = '#476d7c';
-        ctx.textAlign = 'left';
-        ctx.fillText('♂️', currentX, currentY - 8);
-      }
+      let xOffset = colX + bandPadding;
       
       // Medal and rank
       ctx.font = `bold ${medalFontSize}px Arial`;
       ctx.fillStyle = '#1f2937';
       ctx.textAlign = 'left';
-      ctx.fillText(`${medal} #${index + 1}`, currentX + 30, currentY - 8);
+      ctx.fillText(`${medal} #${index + 1}`, xOffset, currentY);
+      xOffset += 100;
       
-      // Player name (no wrapping, single line)
+      // Player name
       ctx.font = `bold ${nameFontSize}px Arial`;
       ctx.fillStyle = '#000000';
       ctx.textAlign = 'left';
-      ctx.fillText(player.nom, currentX + 30, currentY + 18);
+      const maxNameWidth = colWidth - 240; // Space for rank, level, points
+      const nameText = player.nom.length > 15 ? player.nom.substring(0, 15) + '...' : player.nom;
+      ctx.fillText(nameText, xOffset, currentY);
+      xOffset += Math.min(ctx.measureText(nameText).width, maxNameWidth - 60) + 10;
+      
+      // Level
+      ctx.font = `${levelFontSize}px Arial`;
+      ctx.fillStyle = '#6b7280';
+      ctx.fillText(`(${playerObj?.level || 'NC'})`, xOffset, currentY);
+      
+      // Gender indicator for top 3
+      if (isTopManIndex !== -1) {
+        ctx.font = `bold ${iconFontSize}px Arial`;
+        ctx.fillStyle = '#476d7c';
+        ctx.textAlign = 'right';
+        ctx.fillText(`♂ #${isTopManIndex + 1}H`, colX + colWidth - bandPadding - 80, currentY);
+      } else if (isTopWomanIndex !== -1) {
+        ctx.font = `bold ${iconFontSize}px Arial`;
+        ctx.fillStyle = '#e879a9';
+        ctx.textAlign = 'right';
+        ctx.fillText(`♀ #${isTopWomanIndex + 1}F`, colX + colWidth - bandPadding - 80, currentY);
+      }
       
       // Points
       ctx.font = `bold ${pointsFontSize}px Arial`;
       ctx.fillStyle = '#3b82f6';
       ctx.textAlign = 'right';
-      ctx.fillText(`${player.points}pts`, bandX + colWidth - bandPadding, currentY + 5);
-      
-      // Right icon for women finalists
-      if (isTopWomanIndex !== -1) {
-        ctx.font = `bold ${iconFontSize}px Arial`;
-        ctx.fillStyle = '#e879a9';
-        ctx.textAlign = 'right';
-        ctx.fillText('♀️', bandX + colWidth - bandPadding, currentY + 20);
-      }
+      ctx.fillText(`${player.points}pts`, colX + colWidth - bandPadding, currentY);
       
       if (isCol2) {
         col2Y += itemHeight;
@@ -1896,50 +1932,56 @@ async function generateTournamentImage() {
   } else {
     // Single column layout
     joueurs.forEach((player, index) => {
-      const isTopManIndex = top3Hommes.includes(player.id) ? top3Hommes.indexOf(player.id) : -1;
-      const isTopWomanIndex = top3Dames.includes(player.id) ? top3Dames.indexOf(player.id) : -1;
+      const playerObj = players.find(p => p.id === player.id);
+      const isTopManIndex = top3Hommes.indexOf(player.id);
+      const isTopWomanIndex = top3Dames.indexOf(player.id);
       
-      // Alternating background band with padding
+      // Alternating background band
       if (index % 2 === 0) {
         ctx.fillStyle = '#f8f9fa';
-        ctx.fillRect(margin, yPos - itemHeight * 0.65, contentWidth, itemHeight);
+        ctx.fillRect(sideMargin, yPos - itemHeight * 0.6, rankingWidth, itemHeight);
       }
       
       const medal = medals[index] || '•';
-      
-      // Left icon for men finalists
-      if (isTopManIndex !== -1) {
-        ctx.font = `bold ${iconFontSize}px Arial`;
-        ctx.fillStyle = '#476d7c';
-        ctx.textAlign = 'left';
-        ctx.fillText('♂️', margin + bandPadding, yPos - 8);
-      }
+      let xOffset = sideMargin + bandPadding;
       
       // Medal and rank
       ctx.font = `bold ${medalFontSize}px Arial`;
       ctx.fillStyle = '#1f2937';
       ctx.textAlign = 'left';
-      ctx.fillText(`${medal} #${index + 1}`, margin + bandPadding + 30, yPos - 8);
+      ctx.fillText(`${medal} #${index + 1}`, xOffset, yPos);
+      xOffset += 100;
       
-      // Player name (no wrapping, single line)
+      // Player name
       ctx.font = `bold ${nameFontSize}px Arial`;
       ctx.fillStyle = '#000000';
       ctx.textAlign = 'left';
-      ctx.fillText(player.nom, margin + bandPadding + 60, yPos -8);
+      ctx.fillText(player.nom, xOffset, yPos);
+      xOffset += ctx.measureText(player.nom).width + 10;
+      
+      // Level
+      ctx.font = `${levelFontSize}px Arial`;
+      ctx.fillStyle = '#6b7280';
+      ctx.fillText(`(${playerObj?.level || 'NC'})`, xOffset, yPos);
+      
+      // Gender indicator for top 3
+      if (isTopManIndex !== -1) {
+        ctx.font = `bold ${iconFontSize}px Arial`;
+        ctx.fillStyle = '#476d7c';
+        ctx.textAlign = 'right';
+        ctx.fillText(`♂ #${isTopManIndex + 1}H`, width - sideMargin - bandPadding - 100, yPos);
+      } else if (isTopWomanIndex !== -1) {
+        ctx.font = `bold ${iconFontSize}px Arial`;
+        ctx.fillStyle = '#e879a9';
+        ctx.textAlign = 'right';
+        ctx.fillText(`♀ #${isTopWomanIndex + 1}F`, width - sideMargin - bandPadding - 100, yPos);
+      }
       
       // Points
       ctx.font = `bold ${pointsFontSize}px Arial`;
       ctx.fillStyle = '#3b82f6';
       ctx.textAlign = 'right';
-      ctx.fillText(`${player.points}pts`, width - margin - bandPadding, yPos + 5);
-      
-      // Right icon for women finalists
-      if (isTopWomanIndex !== -1) {
-        ctx.font = `bold ${iconFontSize}px Arial`;
-        ctx.fillStyle = '#e879a9';
-        ctx.textAlign = 'right';
-        ctx.fillText('♀️', margin + bandPadding, yPos - 8);
-      }
+      ctx.fillText(`${player.points}pts`, width - sideMargin - bandPadding, yPos);
       
       yPos += itemHeight;
     });
@@ -2286,7 +2328,7 @@ function renderResults() {
           border: none;
           border-radius: 10px;
           cursor: pointer;
-          background: linear-gradient(90deg, #3b82f6 0%, #3b82f6 0%, #e5e7eb 0%, #e5e7eb 100%);
+          background: linear-gradient(90deg, #b6dde2 0%, #b6dde2 0%, #e5e7eb 0%, #e5e7eb 100%);
           background-size: 200% 100%;
           background-position: 0% 0%;
           transition: background-position 0.05s linear;
@@ -2319,10 +2361,7 @@ function renderResults() {
 
       <div class="w-full flex flex-col justify-center items-center">
         <div class=" px-2 mt-2 flex flex-col gap-2 justify-between w-full items-center">
-          <div style="display: flex; gap: 0.5rem;">
-            <button onclick="handleShareTournament()" class="btn-secondary bg-gray-300" style="" title="Partager en PDF">📄 Partager en PDF</button>
-            <button onclick="handleShareImage()" class="btn-secondary bg-gray-300" style="" title="Partager en image">🖼️ Partager en image</button>
-          </div>
+          <button onclick="handleShareImage()" class="btn-primary" style="" title="Partager">📤 Partager</button>
           ${filterButtonsHtml}
         </div>
         <ol class="mt-4">
@@ -2330,7 +2369,7 @@ function renderResults() {
             .map(
               (j, i) => `
             <li class="mb-2">
-              <strong>${i + 1}.</strong> ${j.nom} ${j.gender === 'H' ? '♂️' : '♀️'} — 
+              <strong>${i + 1}.</strong> ${j.nom} ${j.gender === 'H' ? '♂' : '♀'} — 
               ${j.points} pts 
               <span class="text-gray-500 text-sm">(score : ${j.scoreTotal})</span>
             </li>
@@ -2395,7 +2434,7 @@ function startReveal() {
     const progress = Math.min(elapsed / REVEAL_DURATION, 1);
     const percentage = progress * 100;
     
-    btn.style.background = `linear-gradient(90deg, #3b82f6 0%, #3b82f6 ${percentage}%, #e5e7eb ${percentage}%, #e5e7eb 100%)`;
+    btn.style.background = `linear-gradient(90deg, #b6dde2 0%, #b6dde2 ${percentage}%, #e5e7eb ${percentage}%, #e5e7eb 100%)`;
     
     if (progress >= 1) {
       // Animation complète, révéler les résultats
@@ -2419,7 +2458,7 @@ function cancelReveal() {
     
     const btn = document.getElementById('reveal-button');
     if (btn) {
-      btn.style.background = `linear-gradient(90deg, #3b82f6 0%, #3b82f6 0%, #e5e7eb 0%, #e5e7eb 100%)`;
+      btn.style.background = `linear-gradient(90deg, #b6dde2 0%, #b6dde2 0%, #e5e7eb 0%, #e5e7eb 100%)`;
     }
   }
 }
@@ -2448,18 +2487,18 @@ function showAboutPopup() {
       <h2>Générateur de tournoi de Badminton</h2>
 
       <h3 style="font-weight: bold;">A propos du développeur</h3>
-      <p>Développé par <mark>Jonathan Merandat</mark>, joueur de badminton et passionné de développement web depuis des années, ce générateur de tournoi est mis à disposition gratuitement.</br>
+      <p>Développé par <mark>Jonathan Merandat</mark>, joueur de badminton et passionné de développement web, ce générateur de tournoi est mis à disposition gratuitement.</br>
       <p>Cette application permet de générer automatiquement des matchs de badminton en double, en simple avec des contraintes personnalisées.</p>
       
       <h3 style="font-weight: bold;">Confidentialité des données</h3>
       <p>Toutes les informations saisies sont uniquement stocké en local sur le terminal (smartphone, ordinateur, etc...)</p>
       
       <h3 style="font-weight: bold;">Usage</h3>
-      <p>
-        <span>Préparer le tournoi en renseigner les joueurs et les paramètres.</span><br/>
-        <span>Lancer le tournoi et gérer les scores en temps réel.</span><br/>
-        <span>Consulter les résultats à la fin du tournoi.</span>
-      </p>
+      <ol style="padding-left: 20px;">
+        <li>Préparer le tournoi en renseigner les joueurs et les paramètres.</li>
+        <li>Lancer le tournoi et gérer les scores en temps réel.</li>
+        <li>Consulter les résultats à la fin du tournoi.</li>
+      </ol>
 
       <h2  style="text-align: center;">Bon tournois ! 🏸</h2>
       <center><button class="btn-primary" style="text-align: center;" onclick="closeAboutPopup()">Fermer</button></center>
@@ -2486,14 +2525,47 @@ function afficherTempsEcoule(dateDepart, currentTour) {
   let frameId;
 
   function update() {
-    document.getElementById(
-      "tps-ecoule-" + currentTour
-    ).textContent = `${getTempsEcoule(dateDepart)}`;
+    const element = document.getElementById("tps-ecoule-" + currentTour);
+    if (!element) return;
+    
+    if (settings.activeTargetTimeTour) {
+      // Mode décompte
+      const ecouleSecondes = Math.floor((new Date() - dateDepart) / 1000);
+      const limiteSecondes = settings.targetTimeTour * 60;
+      const restant = limiteSecondes - ecouleSecondes;
+      
+      if (restant >= 0) {
+        // Temps restant positif
+        element.textContent = `${formatTemps(restant)}`;
+        element.className = "justify-center inline-flex items-center rounded-md bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-800 ring-1 ring-yellow-600/20 ring-inset";
+      } else {
+        // Temps dépassé (négatif)
+        element.textContent = `-${formatTemps(Math.abs(restant))}`;
+        element.className = "justify-center inline-flex items-center rounded-md bg-orange-100 px-2 py-1 text-xs font-medium text-orange-800 ring-1 ring-orange-600/20 ring-inset";
+      }
+    } else {
+      // Mode temps écoulé normal
+      element.textContent = `${getTempsEcoule(dateDepart)}`;
+      element.className = "justify-center inline-flex items-center rounded-md bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-800 ring-1 ring-yellow-600/20 ring-inset";
+    }
+    
     frameId = requestAnimationFrame(update);
   }
 
   frameId = requestAnimationFrame(update);
   return () => cancelAnimationFrame(frameId); // retourne une fonction pour stopper
+}
+
+function formatTemps(secondes) {
+  const jours = Math.floor(secondes / 86400);
+  const heures = Math.floor((secondes % 86400) / 3600);
+  const minutes = Math.floor((secondes % 3600) / 60);
+  const secs = secondes % 60;
+  
+  if (jours >= 1) return `plus de ${jours} jour${jours > 1 ? "s" : ""}`;
+  if (heures > 0) return `${heures} h ${minutes} min ${secs} s`;
+  if (minutes > 0) return `${minutes} min ${secs} s`;
+  return `${secs} s`;
 }
 
 function getTempsEcoule(dateDepart, dateFin = null, formatInteger = false) {
@@ -2516,18 +2588,71 @@ function launchTournoi() {
   currentTour = 0;
   focusedMatchIndex = 0; // Focus on first match
   currentEditMatchIndex = -1;
-  document
-    .getElementById("tour-" + (currentTour + 1))
-    .nextElementSibling
-    .querySelector(".match")
-    .scrollIntoView({ behavior: "smooth", block: "start", offset: 200 });
   planning[currentTour].startDate = Date.now();
   renderTournament();
+  
+  // Scroll et focus sur le premier match
+  setTimeout(() => {
+    scrollToFirstMatch(currentTour);
+  }, 100);
+  
   currentStopTimer = afficherTempsEcoule(
     planning[currentTour].startDate,
     currentTour
   );
   saveData();
+}
+
+function scrollToFirstMatch(tourIndex) {
+  // Trouver le tour et le premier match
+  const tourElement = document.getElementById("tour-" + (tourIndex + 1));
+  if (!tourElement) return;
+  
+  const accordionContent = tourElement.nextElementSibling;
+  if (!accordionContent) return;
+  
+  const firstMatch = accordionContent.querySelector(".matchEnCours");
+  if (!firstMatch) return;
+  
+  // Mettre en évidence le premier match
+  firstMatch.classList.add('matchFocused');
+  
+  // Scroll compatible mobile et desktop
+  try {
+    // Essayer d'abord scrollIntoView
+    firstMatch.scrollIntoView({ behavior: "smooth", block: "center" });
+  } catch (e) {
+    // Fallback pour les navigateurs qui ne supportent pas smooth
+    const rect = firstMatch.getBoundingClientRect();
+    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+    const targetScroll = rect.top + scrollTop - 100; // 100px de marge
+    window.scrollTo(0, targetScroll);
+  }
+}
+
+function scrollToFocusedMatch() {
+  if (currentTour === null || currentTour === -1) return;
+  if (focusedMatchIndex === -1) return;
+  
+  // Trouver le match focusé par son data-attribute
+  const matches = document.querySelectorAll('.matchEnCours[data-match-index]');
+  const focusedMatch = Array.from(matches).find(
+    match => parseInt(match.getAttribute('data-match-index')) === focusedMatchIndex
+  );
+  
+  if (!focusedMatch) return;
+  
+  // Scroll compatible mobile et desktop
+  try {
+    // Essayer d'abord scrollIntoView
+    focusedMatch.scrollIntoView({ behavior: "smooth", block: "center" });
+  } catch (e) {
+    // Fallback pour les navigateurs qui ne supportent pas smooth
+    const rect = focusedMatch.getBoundingClientRect();
+    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+    const targetScroll = rect.top + scrollTop - 100; // 100px de marge
+    window.scrollTo(0, targetScroll);
+  }
 }
 
 function clotureTournoi() {
@@ -2548,10 +2673,13 @@ function clotureTour() {
     currentTour++;
     focusedMatchIndex = 0; // Focus on first match of new tour
     currentEditMatchIndex = -1;
-    document
-      .getElementById("tour-" + (currentTour + 1))
-      .scrollIntoView({ behavior: "smooth", block: "start" });
     renderTournament();
+    
+    // Scroll et focus sur le premier match du nouveau tour
+    setTimeout(() => {
+      scrollToFirstMatch(currentTour);
+    }, 100);
+    
     planning[currentTour].startDate = Date.now();
     currentStopTimer = afficherTempsEcoule(
       planning[currentTour].startDate,
@@ -2598,9 +2726,9 @@ function renderOptionsAvancees() {
             .join("")}
           </div>
 
+          ${settings.typeTournoi == "double" ? `
           <div class="flex flex-col flex-auto bg-gray-200 p-2 rounded-md">
 
-            ${settings.typeTournoi == "double" ? `
             <div class="flex flex-col flex-auto gap-1 pl-4">
               <label class="flex gap-4 ">
                 <input type="checkbox" onchange="onChangeAllowDDForbidden(event);" ${
@@ -2621,15 +2749,14 @@ function renderOptionsAvancees() {
                 <span class="">Interdire les doubles mixtes</span>
               </label>
             </div>
-              ` : ""}
-              ${settings.typeTournoi == "double" ? `
+
               <label class="flex items-center gap-4 p-4">
                 <input type="checkbox" onchange="onChangeAllowSimpleIfTournoiDouble(event);" ${
                   settings.allowSimpleIfTypeTournoiDouble ? "checked" : ""
                 } />
                 <span class="">Autoriser les matchs simples</span>
-              </label>` : ""}
-          </div>
+              </label>
+          </div>` : ""}
 
       <div class="flex flex-col flex-auto bg-gray-200 p-2 rounded-md">
         <label class="flex w-full gap-4 p-4">

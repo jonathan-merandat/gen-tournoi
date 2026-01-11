@@ -515,3 +515,22 @@ mark{
 .delete-btn-confirm {
     font-size: 0.9rem !important;
 }
+
+/* Gender symbols alignment fix for consistent rendering across browsers */
+select option,
+button {
+    line-height: 1.5;
+    vertical-align: middle;
+}
+
+/* Ensure gender symbols display consistently */
+.gender-symbol {
+    display: inline-block;
+    vertical-align: middle;
+    line-height: 1;
+}
+
+ol{
+    list-style: decimal !important;
+    list-style-position: inside;
+}
