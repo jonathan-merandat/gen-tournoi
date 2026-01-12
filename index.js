@@ -1912,7 +1912,7 @@ async function generateTournamentImage() {
         ctx.fillText(`♂ #${isTopManIndex + 1}H`, colX + colWidth - bandPadding - 80, currentY);
       } else if (isTopWomanIndex !== -1) {
         ctx.font = `bold ${iconFontSize}px Arial`;
-        ctx.fillStyle = '#e879a9';
+        ctx.fillStyle = '#ff8c42';
         ctx.textAlign = 'right';
         ctx.fillText(`♀ #${isTopWomanIndex + 1}F`, colX + colWidth - bandPadding - 80, currentY);
       }
@@ -1972,7 +1972,7 @@ async function generateTournamentImage() {
         ctx.fillText(`♂ #${isTopManIndex + 1}H`, width - sideMargin - bandPadding - 100, yPos);
       } else if (isTopWomanIndex !== -1) {
         ctx.font = `bold ${iconFontSize}px Arial`;
-        ctx.fillStyle = '#e879a9';
+        ctx.fillStyle = '#ff8c42';
         ctx.textAlign = 'right';
         ctx.fillText(`♀ #${isTopWomanIndex + 1}F`, width - sideMargin - bandPadding - 100, yPos);
       }
