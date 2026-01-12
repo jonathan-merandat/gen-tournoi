@@ -5,8 +5,8 @@ const version = 0.1;
 const clefDataLocalStorage = "gen-tournoi-" + version;
 
 // Color constants for rendering
-const COLOR_MEN_BADGE = '#476d7c';
-const COLOR_WOMEN_BADGE = '#ff8c42';
+const COLOR_MEN_BADGE = '#5FA8A3';
+const COLOR_WOMEN_BADGE = '#B794C4';
 
 // Empêcher le zoom au double-tap sur mobile (sans bloquer les taps rapides)
 document.addEventListener('touchstart', function(event) {
@@ -1117,9 +1117,17 @@ function bindScoreInputHandlers() {
   setupScoreKeyboardCapture();
   };
 
+  const onBlur = (e) => {
+    // Save scores when input loses focus
+    if (currentEditMatchIndex !== -1) {
+      saveScoresFromInputs();
+    }
+  };
+
   inp.addEventListener('focus', onFocus, true);
   inp.addEventListener('click', onFocus, true);
   inp.addEventListener('touchstart', onFocus, { passive: true, capture: true });
+  inp.addEventListener('blur', onBlur, true);
   });
 }
   // Setup keyboard capture for score input
@@ -1829,7 +1837,7 @@ async function generateTournamentImage() {
   let yPos = 40;
   
   // Title section with background
-  ctx.fillStyle = '#476d7c';
+  ctx.fillStyle = '#5FA8A3';
   ctx.fillRect(0, 0, width, headerHeight);
   
   ctx.fillStyle = '#ffffff';
