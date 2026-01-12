@@ -388,8 +388,8 @@ function renderPreparationSection() {
           <div class="flex items-center gap-2 w-full flex-wrap">
             <input class="flex-1" id="name-player" placeholder="Nom du joueur" value="" />
             <select id="gender-player" class="px-3 py-2" >
-                <option value="H" selected>♂ Homme</option>
-                <option value="F">♀ Dame</option>
+                <option value="H" selected>Homme</option>
+                <option value="F">Dame</option>
             </select>
             <select id="level-player" class="px-3 py-2">
             ${levels
@@ -494,8 +494,8 @@ function renderPreparationSection() {
         <input class="flex-1 text-sm font-semibold" id="name_${actualIndex}" value="${p.name}" onchange="players[${actualIndex}].name=this.value;saveData();renderPreparationSection()" />
         <div class="flex flex-auto gap-1" >
           <select class="flex-1 text-sm" onchange="players[${actualIndex}].gender=this.value;saveData();renderPreparationSection()">
-            <option value="H" ${p.gender === "H" ? "selected" : ""}>♂ Homme</option>
-            <option value="F" ${p.gender === "F" ? "selected" : ""}>♀ Dame</option>
+            <option value="H" ${p.gender === "H" ? "selected" : ""}>Homme</option>
+            <option value="F" ${p.gender === "F" ? "selected" : ""}>Dame</option>
           </select>
           <select class="flex-1 text-sm" onchange="players[${actualIndex}].level=this.value;saveData();renderPreparationSection()">
             ${levels

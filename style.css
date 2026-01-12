@@ -1,9 +1,9 @@
 :root {
     --bg1-color: #f1f1f1;
     --text1-color: #000000;
-    --bg2-color: #5FA8A3;
+    --bg2-color: #476d7c;
     --text2-color: #fff;
-    --bg3-color: #b6dde2;
+    --bg3-color: #a8c5d1;
     --text3-color: #000000;
     --bg4-color: #c8c8c8;
     --text4-color: #000000;
@@ -18,10 +18,10 @@
 .theme-dark {
     --bg1-color: #000000;
     --text1-color: #f1f1f1;
-    --bg2-color: #5FA8A3;
+    --bg2-color: #476d7c;
     --text2-color: #fff;
     --bg3-color: #000000;
-    --text3-color: #b6dde2;
+    --text3-color: #a8c5d1;
     --bg4-color: #ffffff;
     --text4-color: #349170;
     --radius: 5px;
