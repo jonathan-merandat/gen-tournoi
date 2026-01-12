@@ -812,13 +812,13 @@ function renderTournament() {
                                     }
                                     ${
                                       currentEditMatchIndex == index
-                                        ? `<input type="number" id="currentScoreIndex1" class="score-input" min="0" max="32" maxlength="3" value="${match.scoreTeam1}" ${isMobileDevice() ? 'inputmode="numeric"' : ''} readonly onclick="(evt) => { evt.preventDefault();focusedTeamInEdit=1;setupScoreKeyboardCapture();}">`
+                                        ? `<input type="number" id="currentScoreIndex1" class="score-input" min="0" max="32" maxlength="3" value="${match.scoreTeam1}" ${isMobileDevice() ? 'inputmode="numeric"' : ''} onclick="(evt) => { evt.preventDefault();focusedTeamInEdit=1;setupScoreKeyboardCapture();}">`
                                         : `<span class="w-8 text-right">${match.scoreTeam1}</span>`
                                     }
                                     <span>-</span>
                                     ${
                                       currentEditMatchIndex == index
-                                        ? `<input type="number" id="currentScoreIndex2" class="score-input" min="0" max="32" maxlength="3" value="${match.scoreTeam2}" ${isMobileDevice() ? 'inputmode="numeric"' : ''} readonly onclick="(evt) => { evt.preventDefault();focusedTeamInEdit=2;setupScoreKeyboardCapture();}">`
+                                        ? `<input type="number" id="currentScoreIndex2" class="score-input" min="0" max="32" maxlength="3" value="${match.scoreTeam2}" ${isMobileDevice() ? 'inputmode="numeric"' : ''} onclick="(evt) => { evt.preventDefault();focusedTeamInEdit=2;setupScoreKeyboardCapture();}">`
                                         : `<span class="w-8 text-left">${match.scoreTeam2}</span>`
                                     }
                                     ${
