@@ -545,13 +545,13 @@ select {
     padding-right: 2rem;
 }
 
-/* Improve rendering of option elements on iOS */
+/* Enhanced option styling for better gender symbol rendering */
 select option {
     line-height: 1.6;
     padding: 8px 12px;
 }
 
-/* iOS Safari specific fixes for vertical alignment */
+/* iOS Safari specific fixes for vertical alignment of gender symbols */
 @supports (-webkit-touch-callout: none) {
     select {
         /* Using !important here is necessary to override base styles specifically for iOS */
@@ -561,6 +561,7 @@ select option {
     }
     
     select option {
+        /* Further line-height adjustment needed for iOS Safari to properly align ♂ and ♀ symbols */
         line-height: 1.7;
         min-height: 1.8rem;
     }
