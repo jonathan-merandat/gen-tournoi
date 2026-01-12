@@ -485,7 +485,7 @@ mark{
 
 .player-preparation-F {
     background-color: var(--bg-femme) !important;
-    border-color: #ffb380;
+    border-color: var(--bg-femme);
 }
 
 .player-preparation-H:hover,
