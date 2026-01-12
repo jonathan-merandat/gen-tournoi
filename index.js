@@ -4,6 +4,10 @@
 const version = 0.1;
 const clefDataLocalStorage = "gen-tournoi-" + version;
 
+// Color constants for rendering
+const COLOR_MEN_BADGE = '#476d7c';
+const COLOR_WOMEN_BADGE = '#ff8c42';
+
 // Empêcher le zoom au double-tap sur mobile (sans bloquer les taps rapides)
 document.addEventListener('touchstart', function(event) {
   if (event.touches.length > 1) {
@@ -1907,12 +1911,12 @@ async function generateTournamentImage() {
       // Gender indicator for top 3
       if (isTopManIndex !== -1) {
         ctx.font = `bold ${iconFontSize}px Arial`;
-        ctx.fillStyle = '#476d7c';
+        ctx.fillStyle = COLOR_MEN_BADGE;
         ctx.textAlign = 'right';
         ctx.fillText(`♂ #${isTopManIndex + 1}H`, colX + colWidth - bandPadding - 80, currentY);
       } else if (isTopWomanIndex !== -1) {
         ctx.font = `bold ${iconFontSize}px Arial`;
-        ctx.fillStyle = '#e879a9';
+        ctx.fillStyle = COLOR_WOMEN_BADGE;
         ctx.textAlign = 'right';
         ctx.fillText(`♀ #${isTopWomanIndex + 1}F`, colX + colWidth - bandPadding - 80, currentY);
       }
@@ -1967,12 +1971,12 @@ async function generateTournamentImage() {
       // Gender indicator for top 3
       if (isTopManIndex !== -1) {
         ctx.font = `bold ${iconFontSize}px Arial`;
-        ctx.fillStyle = '#476d7c';
+        ctx.fillStyle = COLOR_MEN_BADGE;
         ctx.textAlign = 'right';
         ctx.fillText(`♂ #${isTopManIndex + 1}H`, width - sideMargin - bandPadding - 100, yPos);
       } else if (isTopWomanIndex !== -1) {
         ctx.font = `bold ${iconFontSize}px Arial`;
-        ctx.fillStyle = '#e879a9';
+        ctx.fillStyle = COLOR_WOMEN_BADGE;
         ctx.textAlign = 'right';
         ctx.fillText(`♀ #${isTopWomanIndex + 1}F`, width - sideMargin - bandPadding - 100, yPos);
       }

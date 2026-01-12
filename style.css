@@ -12,7 +12,7 @@
     --radius: 5px;
     --padding-button: 5px;
     --bg-homme: #cee4e7;
-    --bg-femme: #f0ddf0;
+    --bg-femme: #ffb380;
 }
 
 .theme-dark {
@@ -485,7 +485,7 @@ mark{
 
 .player-preparation-F {
     background-color: var(--bg-femme) !important;
-    border-color: #f0ddf0;
+    border-color: var(--bg-femme);
 }
 
 .player-preparation-H:hover,
