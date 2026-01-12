@@ -530,6 +530,34 @@ button {
     line-height: 1;
 }
 
+/* Fix for iOS/iPhone dropdown alignment with gender symbols */
+select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    line-height: normal;
+}
+
+/* Improve rendering of option elements on iOS */
+select option {
+    line-height: 1.6;
+    padding: 8px 12px;
+}
+
+/* iOS Safari specific fixes for vertical alignment */
+@supports (-webkit-touch-callout: none) {
+    select {
+        padding-top: 0.5rem !important;
+        padding-bottom: 0.5rem !important;
+        line-height: 1.5 !important;
+    }
+    
+    select option {
+        line-height: 1.7;
+        min-height: 1.8rem;
+    }
+}
+
 ol{
     list-style: decimal !important;
     list-style-position: inside;
