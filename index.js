@@ -501,7 +501,7 @@ function renderPreparationSection() {
     const actualIndex = players.indexOf(p);
     return `
       <div class="player player-preparation-${p.gender} flex flex-1 flex-wrap gap-1 p-2 border rounded-lg justify-center items-center" style="">
-        <input type="checkbox" ${p.selected ? "checked" : ""} onchange="players[${actualIndex}].selected=this.checked;saveData();renderPreparationSection();" style="cursor:pointer;" title="${p.selected ? 'Désélectionner' : 'Sélectionner'} ce joueur">
+        <input type="checkbox" class="player-selection-checkbox" ${p.selected ? "checked" : ""} onchange="players[${actualIndex}].selected=this.checked;saveData();renderPreparationSection();" title="${p.selected ? 'Désélectionner' : 'Sélectionner'} ce joueur">
         <input class="flex-1 text-sm font-semibold" id="name_${actualIndex}" value="${p.name}" onchange="players[${actualIndex}].name=this.value;saveData();renderPreparationSection()" />
         <div class="flex flex-auto gap-1" >
           <select class="flex-1 text-sm" onchange="players[${actualIndex}].gender=this.value;saveData();renderPreparationSection()">
