@@ -500,9 +500,11 @@ function renderPreparationSection() {
   const renderPlayerCard = (p) => {
     const actualIndex = players.indexOf(p);
     return `
-      <div class="player player-preparation-${p.gender} flex flex-1 flex-wrap gap-1 p-2 border rounded-lg justify-center items-center" style="">
+      <div class="player player-preparation-${p.gender} max-w-96 flex flex-1 flex-wrap gap-1 p-2 border rounded-lg justify-center items-center" style="">
+        <div class="flex items-center justify-between gap-2 w-full">
         <input type="checkbox" class="player-selection-checkbox" ${p.selected ? "checked" : ""} onchange="players[${actualIndex}].selected=this.checked;saveData();renderPreparationSection();" title="${p.selected ? 'Désélectionner' : 'Sélectionner'} ce joueur">
         <input class="flex-1 text-sm font-semibold" id="name_${actualIndex}" value="${p.name}" onchange="players[${actualIndex}].name=this.value;saveData();renderPreparationSection()" />
+        </div>
         <div class="flex flex-auto gap-1" >
           <select class="flex-1 text-sm" onchange="players[${actualIndex}].gender=this.value;saveData();renderPreparationSection()">
             <option value="H" ${p.gender === "H" ? "selected" : ""}>Homme</option>
@@ -528,7 +530,7 @@ function renderPreparationSection() {
     ${selectedPlayers.length > 0 ? `
       <div class="w-full">
         <h3 class="text-lg font-semibold mb-2 px-2">✓ Joueurs sélectionnés</h3>
-        <div class="flex flex-wrap gap-3">
+        <div class="flex flex-wrap gap-3 justify-center">
           ${selectedPlayers.map(renderPlayerCard).join("")}
         </div>
       </div>
@@ -542,7 +544,7 @@ function renderPreparationSection() {
     ${unselectedPlayers.length > 0 ? `
       <div class="w-full mt-4">
         <h3 class="text-lg font-semibold mb-2 px-2">Joueurs non sélectionnés</h3>
-        <div class="flex flex-wrap gap-3">
+        <div class="flex flex-wrap gap-3  justify-center">
           ${unselectedPlayers.map(renderPlayerCard).join("")}
         </div>
       </div>
@@ -1593,7 +1595,8 @@ async function generateTournamentPDF() {
   const lineHeight = 4.8;
   
   // Compute stats
-  const participants = players.length;
+  const selectedPlayers = players.filter(p => p.selected !== false);
+  const participants = selectedPlayers.length;
   const terrains = settings.terrains;
   const roundsCount = planning.length;
   let matchesPlayed = 0;
@@ -1608,7 +1611,7 @@ async function generateTournamentPDF() {
   
   // Compute scores and rankings
   const scores = calculerScores();
-  const joueurs = players.map((p) => ({
+  const joueurs = selectedPlayers.map((p) => ({
     id: p.id,
     nom: p.name,
     gender: p.gender,
@@ -1833,13 +1836,15 @@ async function generateTournamentImage() {
   
   // Compute scores and rankings
   const scores = calculerScores();
-  const joueurs = players.map((p) => ({
-    id: p.id,
-    nom: p.name,
-    gender: p.gender,
-    points: scores[p.id]?.points || 0,
-    scoreTotal: scores[p.id]?.scoreTotal || 0
-  }));
+  const joueurs = players
+    .filter(p => p.selected !== false)
+    .map((p) => ({
+      id: p.id,
+      nom: p.name,
+      gender: p.gender,
+      points: scores[p.id]?.points || 0,
+      scoreTotal: scores[p.id]?.scoreTotal || 0
+    }));
   joueurs.sort((a, b) => b.points - a.points || b.scoreTotal - a.scoreTotal);
   
   const hommes = joueurs.filter(j => j.gender === 'H');
@@ -2326,13 +2331,15 @@ function renderResults() {
   const el = document.getElementById("results");
   const scores = calculerScores();
 
-  const joueurs = players.map((p) => ({
-    nom: p.name,
-    id: p.id,
-    gender: p.gender,
-    points: scores[p.id]?.points || 0,
-    scoreTotal: scores[p.id]?.scoreTotal || 0,
-  }));
+  const joueurs = players
+    .filter(p => p.selected !== false)
+    .map((p) => ({
+      nom: p.name,
+      id: p.id,
+      gender: p.gender,
+      points: scores[p.id]?.points || 0,
+      scoreTotal: scores[p.id]?.scoreTotal || 0,
+    }));
 
   joueurs.sort((a, b) => b.points - a.points || b.scoreTotal - a.scoreTotal);
 
@@ -2540,14 +2547,14 @@ function showAboutPopup() {
       <h3 style="font-weight: bold;">Confidentialité des données</h3>
       <p>Toutes les informations saisies sont uniquement stocké en local sur le terminal (smartphone, ordinateur, etc...)</p>
       
-      <h3 style="font-weight: bold;">Usage</h3>
+      <h3 style="font-weight: bold;">Usage</h3></br>
       <ol style="padding-left: 20px;">
-        <li>Préparer le tournoi en renseigner les joueurs et les paramètres.</li>
+        <li>Préparer le tournoi en renseignant les joueurs et les paramètres.</li>
         <li>Lancer le tournoi et gérer les scores en temps réel.</li>
-        <li>Consulter les résultats à la fin du tournoi.</li>
+        <li>Consulter et partager les résultats</li>
       </ol>
 
-      <h2  style="text-align: center;">Bon tournois ! 🏸</h2>
+      <h2  style="text-align: center;">Bons tournois ! 🏸</h2>
       <center><button class="btn-primary" style="text-align: center;" onclick="closeAboutPopup()">Fermer</button></center>
     </div>
   `;
@@ -3601,8 +3608,8 @@ function addProgressBar() {
   const title = document.createElement("div");
   title.style.marginTop = "1em";
   title.id = "title-progress-bar";
-  title.innerHTML = `<center><span class="flex flex-col w-80" >Génération du tournoi en cours... </br> </br><button class="btn-secondary" onclick="stopRequest()"> Arrêter la recherche </button></span> </br>
-  <span style="font-size:0.8em; font-style:italic;">La meilleure distribution sera retenue</span> </center>`;
+  title.innerHTML = `<center><span class="flex flex-col w-80 gap-2" >Génération du tournoi en cours... </br><button class="btn-secondary" onclick="stopRequest()"> Arrêter la recherche </button></span> </br>
+  <div style="font-size:0.9em;margin:20px;font-style:italic;">Vous pouvez arrêter la recherche à tout moment, la meilleure distribution sera retenue</div> </center>`;
   const label = document.createElement("div");
   label.style.marginTop = "1em";
   label.id = "label-progress-bar";

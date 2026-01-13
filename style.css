@@ -575,6 +575,7 @@ ol{
     background-color: white;
     position: relative;
     transition: all 0.2s ease;
+    flex-shrink: 0;
 }
 
 .player-selection-checkbox:hover {
