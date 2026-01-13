@@ -181,6 +181,13 @@ let focusedMatchIndex = -1; // Match with keyboard focus (highlighted border)
 let focusedTeamInEdit = 1; // Which team (1 or 2) we're editing when in edit mode
 let currentStopTimer = null;
 
+// Ensure backward compatibility: add 'selected' property to existing players
+players.forEach(p => {
+  if (p.selected === undefined) {
+    p.selected = true;
+  }
+});
+
 let stopRequested = false;
 let resultsRevealed = tournoi.resultsRevealed || false;
 let genderFilter = "tous"; // 'tous', 'H', 'F'
@@ -485,13 +492,6 @@ function renderPreparationSection() {
   };
 
   const list = el.querySelector("#playerList");
-  
-  // Ensure all players have a 'selected' property (for backward compatibility)
-  players.forEach(p => {
-    if (p.selected === undefined) {
-      p.selected = true;
-    }
-  });
   
   const filteredPlayers = players.filter(p => playerGenderFilter === "tous" || p.gender === playerGenderFilter);
   const selectedPlayers = filteredPlayers.filter(p => p.selected);
