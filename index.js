@@ -406,9 +406,9 @@ function renderPreparationSection() {
       </form>
 
       <div class="sous-header-ternary flex gap-0 w-full mt-2 items-stretch">
-        <button class="flex-auto px-4 py-2 ${playerGenderFilter === 'tous' ? 'genderFilterActif' : 'bg-gray-300 text-black'} rounded-l-md" onclick="updatePlayerGenderFilter('tous');">Tous (${players.length})</button>
-        <button class="flex-auto px-4 py-2 ${playerGenderFilter === 'H' ? 'genderFilterActif' : 'bg-gray-300 text-black'} border-l border-r border-gray-400" onclick="updatePlayerGenderFilter('H');">♂ Hommes (${players.filter(p => p.gender === 'H').length})</button>
-        <button class="flex-auto px-4 py-2 ${playerGenderFilter === 'F' ? 'genderFilterActif' : 'bg-gray-300 text-black'} rounded-r-md" onclick="updatePlayerGenderFilter('F');">♀ Dames (${players.filter(p => p.gender === 'F').length})</button>
+        <button class="flex-auto px-4 py-2 ${playerGenderFilter === 'tous' ? 'genderFilterActif' : 'bg-gray-300 text-black'} rounded-l-md" onclick="updatePlayerGenderFilter('tous');">Tous (${players.filter(p => p.selected).length})</button>
+        <button class="flex-auto px-4 py-2 ${playerGenderFilter === 'H' ? 'genderFilterActif' : 'bg-gray-300 text-black'} border-l border-r border-gray-400" onclick="updatePlayerGenderFilter('H');">♂ Hommes (${players.filter(p => p.gender === 'H' && p.selected).length})</button>
+        <button class="flex-auto px-4 py-2 ${playerGenderFilter === 'F' ? 'genderFilterActif' : 'bg-gray-300 text-black'} rounded-r-md" onclick="updatePlayerGenderFilter('F');">♀ Dames (${players.filter(p => p.gender === 'F' && p.selected).length})</button>
       </div>
 
       <div id="playerList" class="px-2 m-5 flex flex-wrap gap-3 max-w-5xl mx-auto"></div>
@@ -418,14 +418,14 @@ function renderPreparationSection() {
     ${
       /*➜*/
       planning.length == 0
-        ? ((settings.typeTournoi === "double" && players.length >= 4) || (settings.typeTournoi !== "double" && players.length >= 2) ?
+        ? ((settings.typeTournoi === "double" && players.filter(p => p.selected).length >= 4) || (settings.typeTournoi !== "double" && players.filter(p => p.selected).length >= 2) ?
           `<button class="btn-primary" onclick="optimisePlanning();"> 🏆 Générer le tournoi</button>`
-          : `<span>Pas assez de joueurs..</span>`)
+          : `<span>Pas assez de joueurs sélectionnés..</span>`)
         : `
       <div class="flex justify-between w-full p-2">
-        ${(settings.typeTournoi === "double" && players.length >= 4) || (settings.typeTournoi !== "double" && players.length >= 2) ?
+        ${(settings.typeTournoi === "double" && players.filter(p => p.selected).length >= 4) || (settings.typeTournoi !== "double" && players.filter(p => p.selected).length >= 2) ?
           `<button class="btn-secondary" onclick="regenerate();"> ↺ Régénérer le tournoi</button>`
-          : `<span>Pas assez de joueurs..</span>`
+          : `<span>Pas assez de joueurs sélectionnés..</span>`
         }
         <button class="btn-primary" onclick="showSection('tournament');renderPanelTournament();"> Tournoi ${
           currentTour == null
@@ -474,6 +474,7 @@ function renderPreparationSection() {
       gender,
       level: level,
       id: crypto.randomUUID?.(),
+      selected: true,
     };
     players.splice(0, 0, newPlayer);
     saveData();
@@ -484,13 +485,23 @@ function renderPreparationSection() {
   };
 
   const list = el.querySelector("#playerList");
-  list.innerHTML = players
-    .filter(p => playerGenderFilter === "tous" || p.gender === playerGenderFilter)
-    .map(
-      (p, i) => {
-        const actualIndex = players.indexOf(p);
-        return `
+  
+  // Ensure all players have a 'selected' property (for backward compatibility)
+  players.forEach(p => {
+    if (p.selected === undefined) {
+      p.selected = true;
+    }
+  });
+  
+  const filteredPlayers = players.filter(p => playerGenderFilter === "tous" || p.gender === playerGenderFilter);
+  const selectedPlayers = filteredPlayers.filter(p => p.selected);
+  const unselectedPlayers = filteredPlayers.filter(p => !p.selected);
+  
+  const renderPlayerCard = (p) => {
+    const actualIndex = players.indexOf(p);
+    return `
       <div class="player player-preparation-${p.gender} flex flex-1 flex-wrap gap-1 p-2 border rounded-lg justify-center items-center" style="">
+        <input type="checkbox" ${p.selected ? "checked" : ""} onchange="players[${actualIndex}].selected=this.checked;saveData();renderPreparationSection();" style="cursor:pointer;" title="${p.selected ? 'Désélectionner' : 'Sélectionner'} ce joueur">
         <input class="flex-1 text-sm font-semibold" id="name_${actualIndex}" value="${p.name}" onchange="players[${actualIndex}].name=this.value;saveData();renderPreparationSection()" />
         <div class="flex flex-auto gap-1" >
           <select class="flex-1 text-sm" onchange="players[${actualIndex}].gender=this.value;saveData();renderPreparationSection()">
@@ -508,11 +519,35 @@ function renderPreparationSection() {
               .join("")}
           </select>
         </div>
-        <button class="delete-btn text-sm"" onclick="requestDeletePlayer(event, ${actualIndex});" title="Supprimer ce joueur">✕ Supprimer</button>
+        ${!p.selected ? `<button class="delete-btn text-sm" onclick="requestDeletePlayer(event, ${actualIndex});" title="Supprimer ce joueur">✕ Supprimer</button>` : ''}
       </div>
-  `}
-    )
-    .join("");
+  `;
+  };
+  
+  list.innerHTML = `
+    ${selectedPlayers.length > 0 ? `
+      <div class="w-full">
+        <h3 class="text-lg font-semibold mb-2 px-2">✓ Joueurs sélectionnés</h3>
+        <div class="flex flex-wrap gap-3">
+          ${selectedPlayers.map(renderPlayerCard).join("")}
+        </div>
+      </div>
+    ` : `
+      <div class="w-full">
+        <h3 class="text-lg font-semibold mb-2 px-2">✓ Joueurs sélectionnés</h3>
+        <p class="px-2 text-gray-500">Aucun joueur</p>
+      </div>
+    `}
+    
+    ${unselectedPlayers.length > 0 ? `
+      <div class="w-full mt-4">
+        <h3 class="text-lg font-semibold mb-2 px-2">Joueurs non sélectionnés</h3>
+        <div class="flex flex-wrap gap-3">
+          ${unselectedPlayers.map(renderPlayerCard).join("")}
+        </div>
+      </div>
+    ` : ''}
+  `;
 
   const sliderTerrains = document.body.querySelector(".slider-param-terrains");
   if (sliderTerrains) {
@@ -3077,9 +3112,9 @@ function permutations(arr) {
 }
 
 
-function getInitialScore(team1, team2) {
-  let scoreTeam1 = team1.reduce((acc, p) => acc + getLevel(p), 0);
-  let scoreTeam2 = team2.reduce((acc, p) => acc + getLevel(p), 0);
+function getInitialScore(team1, team2, playersList = players) {
+  let scoreTeam1 = team1.reduce((acc, p) => acc + getLevel(p, playersList), 0);
+  let scoreTeam2 = team2.reduce((acc, p) => acc + getLevel(p, playersList), 0);
   const minScore = Math.min(scoreTeam1, scoreTeam2);
   const maxScore = Math.max(scoreTeam1, scoreTeam2);
   const diff = settings.isScoreNegatif
@@ -3111,7 +3146,10 @@ async function optimisePlanning() {
   showSection("tournament");
   togglePanel();
 
-  const n = players.length;
+  // Filter only selected players for tournament generation
+  const selectedPlayers = players.filter(p => p.selected);
+  
+  const n = selectedPlayers.length;
   const t = settings.terrains;
   const k = settings.tours;
   const typeTournoiDouble = settings.typeTournoi === "double";
@@ -3126,7 +3164,7 @@ async function optimisePlanning() {
   let adversaireDoubleRepetee;
   
   // on attribue un id unique aux joueurs
-  players = players.map((p, index) => ({ ...p , id: index }));
+  const playersForTournament = selectedPlayers.map((p, index) => ({ ...p , id: index }));
 
   let equipesPossibleSimple; 
   let equipesPossibleDouble;
@@ -3143,7 +3181,7 @@ async function optimisePlanning() {
   let nbEgaliteSexeNonRespecte;
   let nbEcartMaxNonRespecte;
 
-  let playersIds = players.map((p) => p.id);
+  let playersIds = playersForTournament.map((p) => p.id);
   let curPlayersIds = null;
   let curPlayersIdsAttente = null;
   let curMatchPossibleTourSimple = null;
@@ -3159,7 +3197,7 @@ async function optimisePlanning() {
     curPlayersIds = shuffle(playersIds); //melangeJoueurs[iter];
     curPlayersIdsAttente = shuffle(playersIds);
     equipesPossibleSimple = getEquipesPossibleSimple(curPlayersIds, coequipierRepetee);
-    equipesPossibleDouble = typeTournoiDouble ? getEquipesPossibleDouble(curPlayersIds, DHForbidden, DDForbidden, DMForbidden) : [];
+    equipesPossibleDouble = typeTournoiDouble ? getEquipesPossibleDouble(curPlayersIds, DHForbidden, DDForbidden, DMForbidden, playersForTournament) : [];
     matchPossibleSimple = getMatchsPossibleSimple(equipesPossibleSimple, adversaireSimpleRepetee);
     matchPossibleDouble = typeTournoiDouble ? getMatchsPossibleDouble(equipesPossibleDouble, adversaireDoubleRepetee, coequipierRepetee) : [];
     matchsPossibleTour = typeTournoiDouble ? [...matchPossibleDouble] : [...matchPossibleSimple];
@@ -3359,15 +3397,15 @@ async function optimisePlanning() {
         }
 
         //égalité des sexe
-        const nbHommeEquipe1 = match[0].reduce((acc, joueur) => acc + (isHomme(joueur) ? 1 : 0), 0);
-        const nbHommeEquipe2 = match[1].reduce((acc, joueur) => acc + (isHomme(joueur) ? 1 : 0), 0);
+        const nbHommeEquipe1 = match[0].reduce((acc, joueur) => acc + (isHomme(joueur, playersForTournament) ? 1 : 0), 0);
+        const nbHommeEquipe2 = match[1].reduce((acc, joueur) => acc + (isHomme(joueur, playersForTournament) ? 1 : 0), 0);
         if (nbHommeEquipe1 !== nbHommeEquipe2){
             currentScore += 1 * settings.priorities.sexe;
             nbEgaliteSexeNonRespecte++;
         }
 
         //écart de niveau
-        const [initialScoreTeam1, initialScoreTeam2] = getInitialScore(match[0],match[1]);
+        const [initialScoreTeam1, initialScoreTeam2] = getInitialScore(match[0],match[1], playersForTournament);
         match["initialScoreTeam1"] = initialScoreTeam1;
         match["initialScoreTeam2"] = initialScoreTeam2;
         match["scoreTeam1"] = initialScoreTeam1;
@@ -3405,7 +3443,7 @@ async function optimisePlanning() {
         score: currentScore, 
         attente: attenteJoueurs 
       };
-      planning = transformerDistribution(meilleureDistribution);
+      planning = transformerDistribution(meilleureDistribution, playersForTournament);
       renderTournament();
       renderPanelTournament();
     }
@@ -3439,13 +3477,13 @@ async function optimisePlanning() {
 
 }
 
-function getLevel(playerId){
-  const player = players.find(p => p.id === playerId);
+function getLevel(playerId, playersList = players){
+  const player = playersList.find(p => p.id === playerId);
   return player ? levelValue[player.level] : 0;
 }
 
-function isHomme(playerId){
-  const player = players.find(p => p.id === playerId);
+function isHomme(playerId, playersList = players){
+  const player = playersList.find(p => p.id === playerId);
   return player && player.gender === "H";
 }
 
@@ -3472,14 +3510,14 @@ function getMatchsPossibleSimple(equipePossibles){
   return retour;
 }
 
-function getEquipesPossibleDouble(playersIds, DHForbidden, DDForbidden, DMForbidden){
+function getEquipesPossibleDouble(playersIds, DHForbidden, DDForbidden, DMForbidden, playersList = players){
   const retour = [];
   let nbIterations = playersIds.length;
   let compt = 1;
   for (let i = 0; i < nbIterations; i++) {
     for (let j = compt; j < nbIterations; j++) {
-      const isHommeP1 = isHomme(playersIds[i]);
-      const isHommeP2 = isHomme(playersIds[j]);
+      const isHommeP1 = isHomme(playersIds[i], playersList);
+      const isHommeP2 = isHomme(playersIds[j], playersList);
       if ((isHommeP1 && isHommeP2 && DHForbidden) ||
           (!isHommeP1 && !isHommeP2 && DDForbidden) ||
           ((isHommeP1 != isHommeP2) && DMForbidden)){
@@ -3514,21 +3552,21 @@ function getMatchsPossibleDouble(equipePossibles){
   return retour;
 }
 
-function transformerDistribution(obj) {
+function transformerDistribution(obj, playersList = players) {
 
   return obj["distribution"].map(tour => {
     const matchsTransformes = tour.matchs.map(match => {
       //const matchId = `${match[0].map(j => j.id).sort().join('-')}-${match[1].map(j => j.id).sort().join('-')}`;
       return {
-        team1: match[0].map(j =>  players.find(p => p.id === j)),
-        team2: match[1].map(j =>  players.find(p => p.id === j)),
+        team1: match[0].map(j =>  playersList.find(p => p.id === j)),
+        team2: match[1].map(j =>  playersList.find(p => p.id === j)),
         scoreTeam1: match.scoreTeam1,
         scoreTeam2: match.scoreTeam2,
         initialScoreTeam1: match.initialScoreTeam1,
         initialScoreTeam2: match.initialScoreTeam2
       };
     });
-    const attentes = tour.attente.map(id => players.find(p => p.id === id));
+    const attentes = tour.attente.map(id => playersList.find(p => p.id === id));
     return {
       attentes: attentes,
       matchs: matchsTransformes,
