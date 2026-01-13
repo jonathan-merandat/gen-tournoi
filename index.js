@@ -3260,7 +3260,7 @@ async function optimisePlanning() {
       for (let indexTerrain = 0; indexTerrain < t; indexTerrain++) {
         
         //si plus assez de joueurs
-        if (n - joueursUtilises.size < (typeTournoiDouble ? 4 : 2)){
+        if (n - joueursUtilises.size - currentJoueursAttente.length < (typeTournoiDouble ? 4 : 2)){
           if (typeTournoiDouble){
             if (allowSimpleIfTypeTournoiDouble){
               curMatchPossibleTourSimple = [...matchPossibleSimple];
