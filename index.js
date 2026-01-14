@@ -3257,6 +3257,7 @@ async function optimisePlanning() {
 
       const matchsTour = [];
       const joueursUtilises = new Set();
+      const terrainRetries = {}; // Track retries per terrain to prevent infinite loops
       for (let indexTerrain = 0; indexTerrain < t; indexTerrain++) {
         
         //si plus assez de joueurs
@@ -3288,9 +3289,21 @@ async function optimisePlanning() {
           indexMatch--;
         }
 
-        if (curMatchPossible.length == 0) {
+        if (curMatchPossible.length == 0 || indexMatch >= curMatchPossible.length) {
+          // Track retries for this terrain
+          if (!terrainRetries[indexTerrain]) {
+            terrainRetries[indexTerrain] = 0;
+          }
+          terrainRetries[indexTerrain]++;
+          
+          // If we've retried too many times, give up on this terrain
+          if (terrainRetries[indexTerrain] > 10) {
+            break;
+          }
+          
           curMatchsPossibleTour = [...matchsPossibleTour];
           curMatchsPossibleTour = shuffle(curMatchsPossibleTour);
+          indexTerrain--; // Retry the same terrain
           continue;
         }
 
