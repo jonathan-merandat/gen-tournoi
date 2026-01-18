@@ -6,7 +6,171 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
-    <title>Générateur de tournoi de Badminton</title>
+    
+    <!-- Primary Meta Tags -->
+    <title>Générateur de Tournoi de Badminton - Organisez vos Tournois Facilement</title>
+    <meta name="title" content="Générateur de Tournoi de Badminton - Organisez vos Tournois Facilement" />
+    <meta name="description" content="Outil gratuit pour générer et gérer des tournois de badminton en double et simple. Planification automatique des matchs, gestion des scores en temps réel, contraintes personnalisables. Parfait pour les clubs et associations." />
+    <meta name="keywords" content="badminton, tournoi badminton, générateur tournoi, planification badminton, tournoi double, tournoi simple, gestion match badminton, club badminton, organisateur tournoi" />
+    <meta name="author" content="Jonathan Merandat" />
+    <meta name="robots" content="index, follow" />
+    <meta name="language" content="French" />
+    <link rel="canonical" href="https://jonathan-merandat.github.io/gen-tournoi/" />
+    
+    <!-- Theme Color for Mobile Browsers -->
+    <meta name="theme-color" content="#476d7c" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="#476d7c" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://jonathan-merandat.github.io/gen-tournoi/" />
+    <meta property="og:title" content="Générateur de Tournoi de Badminton - Organisez vos Tournois Facilement" />
+    <meta property="og:description" content="Outil gratuit pour générer et gérer des tournois de badminton en double et simple. Planification automatique des matchs, gestion des scores en temps réel, contraintes personnalisables." />
+    <meta property="og:image" content="https://jonathan-merandat.github.io/gen-tournoi/og-image.png" />
+    <meta property="og:locale" content="fr_FR" />
+    <meta property="og:site_name" content="Générateur de Tournoi de Badminton" />
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://jonathan-merandat.github.io/gen-tournoi/" />
+    <meta name="twitter:title" content="Générateur de Tournoi de Badminton" />
+    <meta name="twitter:description" content="Outil gratuit pour générer et gérer des tournois de badminton. Planification automatique, gestion en temps réel." />
+    <meta name="twitter:image" content="https://jonathan-merandat.github.io/gen-tournoi/og-image.png" />
+    
+    <!-- Structured Data / Schema.org for SEO -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Générateur de Tournoi de Badminton",
+      "description": "Application web gratuite pour générer et gérer des tournois de badminton en double et simple avec planification automatique des matchs et gestion des scores en temps réel",
+      "url": "https://jonathan-merandat.github.io/gen-tournoi/",
+      "applicationCategory": "SportsApplication",
+      "operatingSystem": "Any",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "EUR"
+      },
+      "author": {
+        "@type": "Person",
+        "name": "Jonathan Merandat"
+      },
+      "inLanguage": "fr-FR",
+      "featureList": [
+        "Génération automatique de tournois",
+        "Gestion de tournois en double et simple",
+        "Contraintes personnalisables",
+        "Gestion des scores en temps réel",
+        "Interface responsive",
+        "Stockage local des données"
+      ],
+      "screenshot": "https://jonathan-merandat.github.io/gen-tournoi/screenshot.png"
+    }
+    </script>
+    
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SportsOrganization",
+      "name": "Générateur de Tournoi de Badminton",
+      "sport": "Badminton",
+      "url": "https://jonathan-merandat.github.io/gen-tournoi/",
+      "description": "Plateforme de gestion de tournois de badminton"
+    }
+    </script>
+    
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Comment utiliser le générateur de tournoi de badminton ?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Pour utiliser le générateur : 1) Ajoutez les joueurs avec leur nom, sexe et niveau dans la section Préparation. 2) Configurez le nombre de terrains et de tours. 3) Cliquez sur 'Générer le tournoi' pour créer automatiquement les matchs. 4) Gérez les scores en temps réel pendant le tournoi. 5) Consultez les résultats finaux."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Les données du tournoi sont-elles sauvegardées ?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Oui, toutes les données sont automatiquement sauvegardées localement sur votre appareil grâce au LocalStorage. Aucune donnée n'est envoyée vers un serveur externe, garantissant ainsi votre confidentialité."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Peut-on organiser des tournois en simple et en double ?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Oui, le générateur permet d'organiser des tournois en double (mixte, dames ou hommes) et en simple. Vous pouvez choisir le type de tournoi dans la section Préparation."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Est-ce que l'application fonctionne sur mobile ?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Oui, l'application est entièrement responsive et fonctionne parfaitement sur smartphone, tablette et ordinateur. L'interface s'adapte automatiquement à la taille de votre écran."
+          }
+        }
+      ]
+    }
+    </script>
+    
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "HowTo",
+      "name": "Comment organiser un tournoi de badminton",
+      "description": "Guide étape par étape pour organiser un tournoi de badminton avec notre générateur",
+      "step": [
+        {
+          "@type": "HowToStep",
+          "position": 1,
+          "name": "Ajouter les joueurs",
+          "text": "Ajoutez tous les participants avec leur nom, sexe (Homme/Dame) et niveau de jeu (de NC à N1)."
+        },
+        {
+          "@type": "HowToStep",
+          "position": 2,
+          "name": "Configurer le tournoi",
+          "text": "Définissez le nombre de terrains disponibles, le nombre de tours souhaités et les contraintes (coéquipiers, adversaires, niveau, mixité)."
+        },
+        {
+          "@type": "HowToStep",
+          "position": 3,
+          "name": "Générer les matchs",
+          "text": "Cliquez sur 'Générer le tournoi' pour que l'algorithme crée automatiquement les matchs optimaux selon vos contraintes."
+        },
+        {
+          "@type": "HowToStep",
+          "position": 4,
+          "name": "Lancer le tournoi",
+          "text": "Lancez le tournoi et gérez les scores de chaque match en temps réel sur chaque terrain."
+        },
+        {
+          "@type": "HowToStep",
+          "position": 5,
+          "name": "Consulter les résultats",
+          "text": "À la fin du tournoi, consultez le classement final avec les points et scores de chaque joueur."
+        }
+      ]
+    }
+    </script>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="./manifest.json" />
+    
+    <!-- Favicons -->
+    <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="./favicon-16x16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png" />
+    
     <script src="./index.js"></script>
 
     <!-- plutôt que d'aller en dynamique-->
@@ -28,5 +192,12 @@
 
     <link rel="stylesheet" href="./style.css" />
   </head>
-  <body class="min-h-screen w-full select-none overflow-x-hidden"></body>
+  <body class="min-h-screen w-full select-none overflow-x-hidden">
+    <noscript>
+      <div style="padding: 20px; text-align: center; background: #fff3cd; color: #856404; border: 1px solid #ffeaa7;">
+        <h1>🏸 Générateur de Tournoi de Badminton</h1>
+        <p>Cette application nécessite JavaScript pour fonctionner. Veuillez activer JavaScript dans votre navigateur.</p>
+      </div>
+    </noscript>
+  </body>
 </html>
