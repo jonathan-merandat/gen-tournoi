@@ -3303,6 +3303,11 @@ async function optimisePlanning() {
           
           curMatchsPossibleTour = [...matchsPossibleTour];
           curMatchsPossibleTour = shuffle(curMatchsPossibleTour);
+          // Reset simple matches pool if it was being used
+          if (curMatchPossibleTourSimple != null) {
+            curMatchPossibleTourSimple = [...matchPossibleSimple];
+            curMatchPossibleTourSimple = shuffle(curMatchPossibleTourSimple);
+          }
           indexTerrain--; // Retry the same terrain
           continue;
         }
