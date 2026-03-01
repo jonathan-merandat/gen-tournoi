@@ -1337,6 +1337,8 @@ function handleScoreKeydown(e) {
 function navigateToNextMatch() {
   if (currentTour === null || currentTour === -1) return;
   
+  saveScoresFromInputs();
+  
   const totalMatches = planning[currentTour].matchs.length;
   let nextIndex = focusedMatchIndex + 1;
   
@@ -1362,6 +1364,8 @@ function navigateToNextMatch() {
 
 function navigateToPreviousMatch() {
   if (currentTour === null || currentTour === -1) return;
+  
+  saveScoresFromInputs();
   
   const totalMatches = planning[currentTour].matchs.length;
   let prevIndex = focusedMatchIndex - 1;
@@ -3170,8 +3174,7 @@ async function optimisePlanning() {
   let adversaireSimpleRepetee;
   let adversaireDoubleRepetee;
   
-  // on attribue un id unique aux joueurs
-  const playersForTournament = selectedPlayers.map((p, index) => ({ ...p , id: index }));
+  const playersForTournament = selectedPlayers.map(p => ({ ...p }));
 
   let equipesPossibleSimple; 
   let equipesPossibleDouble;
