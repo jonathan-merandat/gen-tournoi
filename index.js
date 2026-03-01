@@ -1409,13 +1409,16 @@ function saveScoresFromInputs() {
   const input2 = document.getElementById('currentScoreIndex2');
   
   if (input1 && input2) {
-    const score1 = parseInt(input1.value) || 0;
-    const score2 = parseInt(input2.value) || 0;
+    const parsed1 = parseInt(input1.value);
+    const parsed2 = parseInt(input2.value);
+    const score1 = Number.isFinite(parsed1) ? parsed1 : 0;
+    const score2 = Number.isFinite(parsed2) ? parsed2 : 0;
     
     // Validate scores
     if (score1 >= 0 && score1 <= 32 && score2 >= 0 && score2 <= 32) {
       planning[currentTour].matchs[currentEditMatchIndex].scoreTeam1 = score1;
       planning[currentTour].matchs[currentEditMatchIndex].scoreTeam2 = score2;
+      planning[currentTour].matchs[currentEditMatchIndex].played = true;
       saveData();
     }
   }
@@ -1453,8 +1456,9 @@ function changeLevelScore(newScore, id) {
   const obj = id.split("-");
   document.getElementById(
     obj[2] == "scoreTeam1" ? "currentScoreIndex1" : "currentScoreIndex2"
-  ).innerHTML = newScore;
+  ).value = newScore;
   planning[obj[0]].matchs[obj[1]][obj[2]] = newScore;
+  planning[obj[0]].matchs[obj[1]].played = true;
 }
 
 function startTouchScore(increment, id, inter, key) {
@@ -2448,6 +2452,12 @@ function calculerScores() {
       const s1 = match.scoreTeam1;
       const s2 = match.scoreTeam2;
 
+      // Skip matches that have not been played yet: no explicit "played" flag
+      // AND scores are still at their initial handicap values.
+      const initial1 = match.initialScoreTeam1 ?? 0;
+      const initial2 = match.initialScoreTeam2 ?? 0;
+      if (!match.played && s1 === initial1 && s2 === initial2) continue;
+
       let pointsTeam1 = 0;
       let pointsTeam2 = 0;
 
@@ -2714,7 +2724,8 @@ function scrollToFocusedMatch() {
 }
 
 function clotureTournoi() {
-  
+  saveScoresFromInputs();
+  currentEditMatchIndex = -1;
   planning[currentTour].endDate = Date.now();
   planning[currentTour].closed = true;
   currentTour = null;
@@ -2724,6 +2735,8 @@ function clotureTournoi() {
 }
 
 function clotureTour() {
+  saveScoresFromInputs();
+  currentEditMatchIndex = -1;
   currentStopTimer();
   planning[currentTour].endDate = Date.now();
   planning[currentTour].closed = true;
